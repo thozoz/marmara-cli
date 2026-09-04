@@ -19,7 +19,14 @@ import (
 // json0 is a short alias for json.RawMessage used across command signatures.
 type json0 = json.RawMessage
 
-var prettyFlag bool
+// renderer turns a raw JSON response into a human-readable table. Returning an
+// error makes output fall back to JSON.
+type renderer func(json.RawMessage) (string, error)
+
+var (
+	prettyFlag bool
+	tableFlag  bool
+)
 
 // deps builds the API + auth manager shared by all commands.
 func deps() (*api.API, *auth.Manager, error) {
@@ -48,8 +55,21 @@ func emit(raw json.RawMessage) error {
 	return enc.Encode(buf)
 }
 
-// dataCmd is a helper for the common "call one API method, print JSON" pattern.
-func dataCmd(use, short string, fn func(ctx context.Context, a *api.API) (json.RawMessage, error)) *cobra.Command {
+// output prints raw as a table when --table is set and a renderer is available
+// (falling back to JSON if the renderer errors), otherwise as JSON.
+func output(raw json.RawMessage, r renderer) error {
+	if tableFlag && r != nil {
+		if s, err := r(raw); err == nil {
+			_, err := fmt.Fprintln(os.Stdout, s)
+			return err
+		}
+	}
+	return emit(raw)
+}
+
+// dataCmd is a helper for the common "call one API method, print output" pattern.
+// r may be nil (no table renderer; always JSON).
+func dataCmd(use, short string, fn func(ctx context.Context, a *api.API) (json.RawMessage, error), r renderer) *cobra.Command {
 	return &cobra.Command{
 		Use:   use,
 		Short: short,
@@ -62,7 +82,7 @@ func dataCmd(use, short string, fn func(ctx context.Context, a *api.API) (json.R
 			if err != nil {
 				return err
 			}
-			return emit(raw)
+			return output(raw, r)
 		},
 	}
 }
@@ -76,31 +96,32 @@ func NewRoot() *cobra.Command {
 		SilenceErrors: true,
 	}
 	root.PersistentFlags().BoolVar(&prettyFlag, "pretty", false, "pretty-print JSON output")
+	root.PersistentFlags().BoolVar(&tableFlag, "table", false, "human-readable table output (falls back to JSON if unsupported)")
 
 	root.AddCommand(
 		loginCmd(),
 		logoutCmd(),
 		// Authenticated: common
-		dataCmd("profile", "Show your profile", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Profile(ctx) }),
-		dataCmd("card", "Campus card balance and gate logs", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Card(ctx) }),
+		dataCmd("profile", "Show your profile", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Profile(ctx) }, renderProfile),
+		dataCmd("card", "Campus card balance and gate logs", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Card(ctx) }, renderCard),
 		// Authenticated: student
 		gradesCmd(),
-		dataCmd("transcript", "Full academic transcript", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Transcript(ctx) }),
-		dataCmd("schedule", "Weekly lecture timetable", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Schedule(ctx) }),
-		dataCmd("exams", "Exam schedule (midterm/final/resit)", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Exams(ctx) }),
+		dataCmd("transcript", "Full academic transcript", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Transcript(ctx) }, renderTranscript),
+		dataCmd("schedule", "Weekly lecture timetable", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Schedule(ctx) }, nil),
+		dataCmd("exams", "Exam schedule (midterm/final/resit)", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Exams(ctx) }, nil),
 		// Public BYS
-		dataCmd("features", "App feature toggles", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Features(ctx) }),
-		dataCmd("risk-report", "Health/risk report", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.RiskReport(ctx) }),
+		dataCmd("features", "App feature toggles", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Features(ctx) }, nil),
+		dataCmd("risk-report", "Health/risk report", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.RiskReport(ctx) }, nil),
 		directoryCmd(),
 		// Public external hosts
-		dataCmd("cafeteria", "Daily cafeteria menu", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Cafeteria(ctx) }),
-		dataCmd("clubs", "Active student clubs", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Clubs(ctx) }),
-		dataCmd("club-events", "Upcoming club events", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.ClubEvents(ctx) }),
-		dataCmd("calendar", "Academic calendar and exam periods", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Calendar(ctx) }),
+		dataCmd("cafeteria", "Daily cafeteria menu", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Cafeteria(ctx) }, renderCafeteria),
+		dataCmd("clubs", "Active student clubs", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Clubs(ctx) }, nil),
+		dataCmd("club-events", "Upcoming club events", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.ClubEvents(ctx) }, nil),
+		dataCmd("calendar", "Academic calendar and exam periods", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Calendar(ctx) }, renderTitleList),
 		campusMapsCmd(),
-		dataCmd("news", "Recent university news", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.News(ctx) }),
-		dataCmd("announcements", "Official announcements", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Announcements(ctx) }),
-		dataCmd("events", "University events", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Events(ctx) }),
+		dataCmd("news", "Recent university news", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.News(ctx) }, renderTitleList),
+		dataCmd("announcements", "Official announcements", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Announcements(ctx) }, renderTitleList),
+		dataCmd("events", "University events", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Events(ctx) }, renderTitleList),
 		// Support tickets
 		ticketCmd(),
 		// AVESİS

@@ -79,7 +79,7 @@ func logoutCmd() *cobra.Command {
 
 // gradesCmd prints grades, with a `detail` subcommand for one course.
 func gradesCmd() *cobra.Command {
-	cmd := dataCmd("grades", "Your grade list", func(ctx context.Context, a *api.API) (json0, error) { return a.Grades(ctx) })
+	cmd := dataCmd("grades", "Your grade list", func(ctx context.Context, a *api.API) (json0, error) { return a.Grades(ctx) }, renderGrades)
 
 	var dersID string
 	detail := &cobra.Command{
@@ -157,7 +157,7 @@ func ticketCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "ticket", Short: "Support tickets (Destek)"}
 	cmd.AddCommand(dataCmd("attributes", "Ticket form options", func(ctx context.Context, a *api.API) (json0, error) {
 		return a.TicketAttributes(ctx)
-	}))
+	}, nil))
 
 	var subject, body string
 	var yes bool

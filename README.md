@@ -58,7 +58,25 @@ marmara exams              # exam schedule
 marmara logout             # revoke token + clear cache
 ```
 
-Add `--pretty` to any command to indent the JSON.
+Output formatting:
+
+- default: compact JSON on one line (easy for scripts/agents to parse)
+- `--pretty`: indented JSON
+- `--table`: human-readable table for supported commands (`transcript`, `grades`,
+  `cafeteria`, `card`, `profile`, `news`, `announcements`, `events`, `calendar`);
+  any command without a table view falls back to JSON automatically
+
+Example:
+
+```
+$ marmara transcript --table
+AD SOYAD (000000000) — Bölüm Adı
+GANO 0.00  |  0.0/100  |  0 kredi / 0 ECTS tamamlandı
+
+YYYY Güz — YANO 0.00 (GANO 0.00)
+Kod      Ders       Kr  ECTS  Harf  Not
+...
+```
 
 The access token auto-refreshes when it's expired or near expiry, using the
 cached refresh token, so you rarely need to log in again.
