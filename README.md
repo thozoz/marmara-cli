@@ -70,11 +70,12 @@ Example:
 
 ```
 $ marmara transcript --table
-AD SOYAD (000000000) — Bölüm Adı
-GANO 0.00  |  0.0/100  |  0 kredi / 0 ECTS tamamlandı
+AD SOYAD (000000000) — Bilgisayar Mühendisliği
+GANO 3.36  |  86.1/100  |  62 kredi / 62 ECTS tamamlandı
 
-YYYY Güz — YANO 0.00 (GANO 0.00)
-Kod      Ders       Kr  ECTS  Harf  Not
+2025 Güz — YANO 3.30 (GANO 3.30)
+Kod      Ders                              Kr  ECTS  Harf  Not
+BLM1001  Bilgisayar Mühendisliğine Giriş   4   4     AA    93
 ...
 ```
 
