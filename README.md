@@ -80,14 +80,21 @@ BLM1001  Bilgisayar Mühendisliğine Giriş   4   4     AA    93
 The access token auto-refreshes when it's expired or near expiry, using the
 cached refresh token, so you rarely need to log in again.
 
-### Filing a support ticket
+## Web dashboard
 
-Creating a ticket is a real action against the university's live system, so it's
-gated behind an explicit confirmation and is **not** exposed over MCP:
+A local, self-hosted browser UI over the same API layer — a clean dashboard for
+your transcript, grades, schedule, exams, cafeteria menu, calendar, news and
+more, plus a summary landing screen (GANO, today's menu, upcoming exams).
 
 ```sh
-marmara ticket create --subject "..." --body "..." --yes
+marmara serve --open        # starts on http://127.0.0.1:8080 and opens a browser
+marmara serve --port 9000   # pick a different port
 ```
+
+Binds to localhost only. If you already logged in via the CLI, the dashboard uses
+the same cached token; otherwise it shows a login form. Your password is sent only
+to the local server and never stored — only tokens are cached, exactly like CLI
+login.
 
 ## MCP server (AI agents)
 
@@ -119,10 +126,6 @@ user and never take an arbitrary student ID.
 
 ## Roadmap / TODO
 
-- **Web UI.** A local browser frontend served by the binary (`marmara serve`),
-  bound to localhost and reusing the shared token cache, over the same API layer
-  the CLI uses. Clean, minimal, self-hosted dashboard for grades, schedule,
-  cafeteria, etc.
 - **Table output for `schedule` and `exams`.** These endpoints return empty
   arrays between terms, so the real field names aren't known yet. Once a term is
   active and the responses contain data, add typed `--table` renderers (like

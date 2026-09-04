@@ -123,6 +123,8 @@ func NewRoot() *cobra.Command {
 		dataCmd("events", "University events", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Events(ctx) }, renderTitleList),
 		// MCP server mode
 		mcpCmd(),
+		// Local web dashboard
+		serveCmd(),
 	)
 	return root
 }

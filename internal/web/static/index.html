@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Marmara — Panel</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Login overlay -->
+  <div id="login" class="overlay" hidden>
+    <form id="login-form" class="login-card">
+      <div class="mark">M</div>
+      <h1>Marmara Panel</h1>
+      <p class="sub">Gayriresmî · kişisel kullanım</p>
+      <label>Kullanıcı adı
+        <input id="username" type="text" autocomplete="username"
+               placeholder="öğrenci: o + numara (örn o000000000)" required>
+      </label>
+      <label>Şifre
+        <input id="password" type="password" autocomplete="current-password" required>
+      </label>
+      <button type="submit">Giriş</button>
+      <p id="login-err" class="err" hidden></p>
+    </form>
+  </div>
+
+  <!-- App shell -->
+  <div id="app" hidden>
+    <header class="topbar">
+      <div class="brand"><span class="mark small">M</span> Marmara Panel</div>
+      <div class="spacer"></div>
+      <span id="whoami" class="whoami"></span>
+      <button id="logout" class="ghost">Çıkış</button>
+    </header>
+
+    <div class="layout">
+      <nav class="sidebar" id="nav"></nav>
+      <main class="content">
+        <div id="panel-title" class="panel-title"></div>
+        <div id="panel" class="panel"></div>
+        <footer class="foot">Gayriresmî · kişisel kullanım · Marmara Üniversitesi ile bağlantısı yoktur.</footer>
+      </main>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
