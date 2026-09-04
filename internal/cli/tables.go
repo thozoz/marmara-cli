@@ -234,7 +234,7 @@ func renderTitleList(raw json.RawMessage) (string, error) {
 			if title == "" {
 				continue
 			}
-			date := firstString(it, "date", "start", "tarih", "startdate", "start_date")
+			date := firstString(it, "date", "datetime", "start", "tarih", "startdate", "start_date")
 			rows = append(rows, []string{date, title})
 		}
 		if len(rows) == 0 {
