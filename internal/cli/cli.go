@@ -88,7 +88,6 @@ func NewRoot() *cobra.Command {
 		dataCmd("transcript", "Full academic transcript", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Transcript(ctx) }),
 		dataCmd("schedule", "Weekly lecture timetable", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Schedule(ctx) }),
 		dataCmd("exams", "Exam schedule (midterm/final/resit)", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Exams(ctx) }),
-		dataCmd("prep", "Prep / language school status", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Prep(ctx) }),
 		// Public BYS
 		dataCmd("features", "App feature toggles", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Features(ctx) }),
 		dataCmd("risk-report", "Health/risk report", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.RiskReport(ctx) }),

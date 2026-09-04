@@ -51,7 +51,6 @@ func register(s *server.MCPServer, a *api.API) {
 	addSimple(s, a, "transcript", "Full academic transcript.", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Transcript(ctx) })
 	addSimple(s, a, "schedule", "Weekly lecture timetable.", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Schedule(ctx) })
 	addSimple(s, a, "exams", "Exam schedule (midterm/final/resit).", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Exams(ctx) })
-	addSimple(s, a, "prep", "Prep/language school status.", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Prep(ctx) })
 
 	// Grade detail (takes an id).
 	gradeDetail := mcp.NewTool("grade_detail",

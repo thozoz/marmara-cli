@@ -54,7 +54,6 @@ marmara grades detail --ders-id <OgrenciDersId>
 marmara transcript
 marmara schedule           # weekly timetable
 marmara exams              # exam schedule
-marmara prep               # prep/language school status
 
 marmara logout             # revoke token + clear cache
 ```
@@ -95,7 +94,7 @@ CLI-only.
 ## Scope
 
 Included: the native mobile Bearer API for your own academic data (profile, card,
-grades, transcript, schedule, exams, prep) and genuinely public JSON (cafeteria,
+grades, transcript, schedule, exams) and genuinely public JSON (cafeteria,
 clubs, calendar, campus maps, news, announcements, events, directory, AVESİS,
 support-ticket form).
 

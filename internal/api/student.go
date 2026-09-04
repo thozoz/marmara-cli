@@ -17,7 +17,6 @@ const (
 	pathTranscript = client.HostBYS + "/v2/Public/Mobil/Ogrenci/TranscriptGetir"
 	pathSchedule   = client.HostBYS + "/v2/Public/Mobil/Ogrenci/DersProgramiGetir"
 	pathExams      = client.HostBYS + "/v2/Public/Mobil/Ogrenci/SinavListesiGetir"
-	pathPrep       = client.HostBYS + "/v2/Public/Mobil/Ogrenci/HazirlikBilgileri"
 )
 
 // Grades returns the student's grade list.
@@ -44,9 +43,4 @@ func (a *API) Schedule(ctx context.Context) (json.RawMessage, error) {
 // Exams returns midterm/final/resit exam schedules.
 func (a *API) Exams(ctx context.Context) (json.RawMessage, error) {
 	return a.authPost(ctx, pathExams, map[string]any{})
-}
-
-// Prep returns prep/language school status.
-func (a *API) Prep(ctx context.Context) (json.RawMessage, error) {
-	return a.authPost(ctx, pathPrep, map[string]any{})
 }
