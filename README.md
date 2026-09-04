@@ -37,7 +37,7 @@ marmara risk-report        # health/risk report
 ```
 
 Your own data needs a login first. Students log in with an **`o` prefix before
-the student number** (e.g. `o000000000`), the same as BYS — the plain number
+the student number** (e.g. `o111111111`), the same as BYS — the plain number
 alone won't work.
 
 ```sh
@@ -68,7 +68,7 @@ Example:
 
 ```
 $ marmara transcript --table
-AD SOYAD (000000000) — Bilgisayar Mühendisliği
+AD SOYAD (111111111) — Bilgisayar Mühendisliği
 GANO 3.36  |  86.1/100  |  62 kredi / 62 ECTS tamamlandı
 
 2025 Güz — YANO 3.30 (GANO 3.30)
