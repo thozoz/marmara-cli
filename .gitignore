@@ -1,0 +1,15 @@
+# Binaries (root-anchored so cmd/marmara/ package is NOT ignored)
+/marmara
+/marmara.exe
+/dist/
+
+# Local env / secrets
+.env
+*.local
+
+# Logs
+*.log
+
+# OS junk
+.DS_Store
+Thumbs.db
