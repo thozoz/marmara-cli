@@ -107,28 +107,6 @@ func gradesCmd() *cobra.Command {
 	return cmd
 }
 
-func directoryCmd() *cobra.Command {
-	cmd := &cobra.Command{Use: "directory", Short: "Personnel phone directory"}
-	search := &cobra.Command{
-		Use:   "search <query>",
-		Short: "Search the personnel directory",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			a, _, err := deps()
-			if err != nil {
-				return err
-			}
-			raw, err := a.DirectorySearch(cmd.Context(), args[0])
-			if err != nil {
-				return err
-			}
-			return emit(raw)
-		},
-	}
-	cmd.AddCommand(search)
-	return cmd
-}
-
 func campusMapsCmd() *cobra.Command {
 	var types bool
 	cmd := &cobra.Command{
@@ -152,64 +130,6 @@ func campusMapsCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&types, "types", false, "list building categories instead of markers")
-	return cmd
-}
-
-func ticketCmd() *cobra.Command {
-	cmd := &cobra.Command{Use: "ticket", Short: "Support tickets (Destek)"}
-	cmd.AddCommand(dataCmd("attributes", "Ticket form options", func(ctx context.Context, a *api.API) (json0, error) {
-		return a.TicketAttributes(ctx)
-	}, nil))
-
-	var subject, body string
-	var yes bool
-	create := &cobra.Command{
-		Use:   "create",
-		Short: "File a support ticket (real side effect; requires --yes)",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if !yes {
-				return errors.New("refusing to file a real ticket without --yes")
-			}
-			if strings.TrimSpace(subject) == "" || strings.TrimSpace(body) == "" {
-				return errors.New("--subject and --body are required")
-			}
-			a, _, err := deps()
-			if err != nil {
-				return err
-			}
-			raw, err := a.CreateTicket(cmd.Context(), subject, body)
-			if err != nil {
-				return err
-			}
-			return emit(raw)
-		},
-	}
-	create.Flags().StringVar(&subject, "subject", "", "ticket subject")
-	create.Flags().StringVar(&body, "body", "", "ticket body")
-	create.Flags().BoolVar(&yes, "yes", false, "confirm filing a real ticket")
-	cmd.AddCommand(create)
-	return cmd
-}
-
-func avesisCmd() *cobra.Command {
-	cmd := &cobra.Command{Use: "avesis", Short: "AVESİS research portal"}
-	search := &cobra.Command{
-		Use:   "search <query>",
-		Short: "Search publications/researchers",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			a, _, err := deps()
-			if err != nil {
-				return err
-			}
-			raw, err := a.AvesisSearch(cmd.Context(), args[0])
-			if err != nil {
-				return err
-			}
-			return emit(raw)
-		},
-	}
-	cmd.AddCommand(search)
 	return cmd
 }
 

@@ -82,42 +82,5 @@ func register(s *server.MCPServer, a *api.API) {
 	addSimple(s, a, "announcements", "Official announcements.", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Announcements(ctx) })
 	addSimple(s, a, "events", "University events.", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Events(ctx) })
 
-	// Directory search (takes a query).
-	dir := mcp.NewTool("directory_search",
-		mcp.WithDescription("Search the personnel phone directory."),
-		mcp.WithString("query", mcp.Description("Name or unit to search."), mcp.Required()),
-	)
-	s.AddTool(dir, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		q, err := req.RequireString("query")
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-		raw, err := a.DirectorySearch(ctx, q)
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-		return mcp.NewToolResultText(string(raw)), nil
-	})
-
-	// AVESİS search (takes a query).
-	av := mcp.NewTool("avesis_search",
-		mcp.WithDescription("Search AVESİS publications/researchers."),
-		mcp.WithString("query", mcp.Description("Search terms."), mcp.Required()),
-	)
-	s.AddTool(av, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		q, err := req.RequireString("query")
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-		raw, err := a.AvesisSearch(ctx, q)
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-		return mcp.NewToolResultText(string(raw)), nil
-	})
-
-	// Ticket attributes (read-only). Ticket creation is intentionally NOT
-	// exposed over MCP — it is a real production side effect and stays a
-	// deliberate, human-confirmed CLI action (`marmara ticket create --yes`).
-	addSimple(s, a, "ticket_attributes", "Support-ticket form options.", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.TicketAttributes(ctx) })
+	// Grade detail (takes an id) is registered above.
 }

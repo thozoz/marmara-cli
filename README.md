@@ -34,9 +34,6 @@ marmara announcements      # official announcements
 marmara events             # university events
 marmara features           # app feature toggles
 marmara risk-report        # health/risk report
-marmara directory search "yılmaz"   # personnel phone directory
-marmara avesis search "yapay zeka"  # AVESİS publications/researchers
-marmara ticket attributes  # support-ticket form options
 ```
 
 Your own data needs a login first. Students log in with an **`o` prefix before
@@ -108,15 +105,13 @@ claude mcp add marmara -- /full/path/to/marmara mcp
 
 Every read command above is exposed as a tool (`profile`, `grades`, `schedule`,
 `exams`, `cafeteria`, `calendar`, …). Log in once with `marmara login` first; the
-MCP server reuses the same cached token. Ticket **creation** is intentionally
-CLI-only.
+MCP server reuses the same cached token.
 
 ## Scope
 
 Included: the native mobile Bearer API for your own academic data (profile, card,
 grades, transcript, schedule, exams) and genuinely public JSON (cafeteria,
-clubs, calendar, campus maps, news, announcements, events, directory, AVESİS,
-support-ticket form).
+clubs, calendar, campus maps, news, announcements, events).
 
 Deliberately excluded: anything that isn't a student's own data or a public
 endpoint, and any cross-student lookup — calls always act as the authenticated
@@ -137,6 +132,20 @@ user and never take an arbitrary student ID.
   balance rather than a bug — it hasn't been tested against a card with money on
   it. When one is available, confirm the balance field (and whether it needs a
   separate call) and wire it into the table view.
+
+### Removed — broken or gone upstream
+
+These were dropped because the university endpoints are unreliable or changed;
+they can be revisited if the backends stabilize:
+
+- **Personnel directory** (`RehberBilgileri`) — returns a server-side HTTP 500 on
+  any real query; the required request shape is unknown and even valid-looking
+  bodies throw.
+- **AVESİS search** (`/proxy/search`) — now 404; the JSON search API path was
+  removed or moved.
+- **Support tickets** (Destek) — `GetApplicationAttributes` redirects to a web
+  login (GET) or demands an application GUID we don't have (POST). Destek expects
+  a browser web session, not this token-based client.
 
 ## License
 

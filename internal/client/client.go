@@ -21,8 +21,6 @@ const (
 	HostESKS   = "https://esks.marmara.edu.tr"
 	HostTakvim = "https://takvim.marmara.edu.tr"
 	HostWWW    = "https://www.marmara.edu.tr"
-	HostDestek = "https://destek.marmara.edu.tr"
-	HostAvesis = "https://avesis.marmara.edu.tr"
 )
 
 // defaultUserAgent is honest about being an unofficial client. Override with

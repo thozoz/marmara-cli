@@ -112,7 +112,6 @@ func NewRoot() *cobra.Command {
 		// Public BYS
 		dataCmd("features", "App feature toggles", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Features(ctx) }, nil),
 		dataCmd("risk-report", "Health/risk report", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.RiskReport(ctx) }, nil),
-		directoryCmd(),
 		// Public external hosts
 		dataCmd("cafeteria", "Daily cafeteria menu", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Cafeteria(ctx) }, renderCafeteria),
 		dataCmd("clubs", "Active student clubs", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Clubs(ctx) }, nil),
@@ -122,10 +121,6 @@ func NewRoot() *cobra.Command {
 		dataCmd("news", "Recent university news", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.News(ctx) }, renderTitleList),
 		dataCmd("announcements", "Official announcements", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Announcements(ctx) }, renderTitleList),
 		dataCmd("events", "University events", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Events(ctx) }, renderTitleList),
-		// Support tickets
-		ticketCmd(),
-		// AVESİS
-		avesisCmd(),
 		// MCP server mode
 		mcpCmd(),
 	)
