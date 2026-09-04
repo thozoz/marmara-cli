@@ -357,6 +357,36 @@ async function selectView(key) {
   catch (e) { setPanel(rawJSON(r.data)); }
 }
 
+// ---- theme ----
+function systemTheme() {
+  try { return matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"; }
+  catch (_) { return "light"; }
+}
+function currentTheme() {
+  return document.documentElement.getAttribute("data-theme") || systemTheme();
+}
+function applyThemeAttr(t) {
+  if (t) document.documentElement.setAttribute("data-theme", t);
+  else document.documentElement.removeAttribute("data-theme");
+}
+function updateThemeBtn() {
+  const b = $("#theme");
+  if (b) b.textContent = currentTheme() === "dark" ? "☀ Açık" : "☾ Koyu";
+}
+function initTheme() {
+  try {
+    const saved = localStorage.getItem("theme");
+    if (saved === "dark" || saved === "light") applyThemeAttr(saved);
+  } catch (_) {}
+  updateThemeBtn();
+}
+function toggleTheme() {
+  const next = currentTheme() === "dark" ? "light" : "dark";
+  applyThemeAttr(next);
+  try { localStorage.setItem("theme", next); } catch (_) {}
+  updateThemeBtn();
+}
+
 // ---- auth ----
 function showLogin() { $("#app").hidden = true; $("#login").hidden = false; }
 function showApp() { $("#login").hidden = true; $("#app").hidden = false; }
@@ -385,4 +415,7 @@ $("#logout").addEventListener("click", async () => {
   showLogin();
 });
 
+$("#theme").addEventListener("click", toggleTheme);
+
+initTheme();
 boot();
