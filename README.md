@@ -39,7 +39,9 @@ marmara avesis search "yapay zeka"  # AVESİS publications/researchers
 marmara ticket attributes  # support-ticket form options
 ```
 
-Your own data needs a login first:
+Your own data needs a login first. Students log in with an **`o` prefix before
+the student number** (e.g. `o000000000`), the same as BYS — the plain number
+alone won't work.
 
 ```sh
 marmara login              # prompts for username/password (masked)

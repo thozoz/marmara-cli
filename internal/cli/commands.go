@@ -33,7 +33,9 @@ func loginCmd() *cobra.Command {
 				password = os.Getenv("MARMARA_PASSWORD")
 			}
 			if username == "" {
-				username, err = prompt("Username: ")
+				// Students log in with an "o" prefix before the student number
+				// (e.g. o000000000), the same as BYS.
+				username, err = prompt("Username (student: o + number, e.g. o000000000): ")
 				if err != nil {
 					return err
 				}
@@ -54,7 +56,7 @@ func loginCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&username, "username", "u", "", "username (or MARMARA_USERNAME)")
+	cmd.Flags().StringVarP(&username, "username", "u", "", "username; students use o + student number, e.g. o000000000 (or MARMARA_USERNAME)")
 	cmd.Flags().StringVarP(&password, "password", "p", "", "password (or MARMARA_PASSWORD)")
 	return cmd
 }
