@@ -1,6 +1,8 @@
 # Binaries (root-anchored so cmd/marmara/ package is NOT ignored)
 /marmara
 /marmara.exe
+*.exe~
+*~
 /dist/
 
 # Local env / secrets

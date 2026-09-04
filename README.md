@@ -2,8 +2,7 @@
 
 Unofficial, headless command-line client for Marmara Üniversitesi's student-facing
 and public APIs. Prints JSON to stdout so it's easy to script or drive from an AI
-agent, and it can also run as an [MCP](https://modelcontextprotocol.io) server so
-agents like Claude can call each operation as a tool.
+agent, and it can also run as an [MCP](https://modelcontextprotocol.io) server so agents like Claude can call each operation as a tool.
 
 > **Disclaimer.** This is a personal project. It is **not affiliated with,
 > authorized by, or endorsed by Marmara Üniversitesi.** It talks to the same
@@ -120,6 +119,22 @@ support-ticket form).
 Deliberately excluded: anything that isn't a student's own data or a public
 endpoint, and any cross-student lookup — calls always act as the authenticated
 user and never take an arbitrary student ID.
+
+## Roadmap / TODO
+
+- **Web UI.** A local browser frontend served by the binary (`marmara serve`),
+  bound to localhost and reusing the shared token cache, over the same API layer
+  the CLI uses. Clean, minimal, self-hosted dashboard for grades, schedule,
+  cafeteria, etc.
+- **Table output for `schedule` and `exams`.** These endpoints return empty
+  arrays between terms, so the real field names aren't known yet. Once a term is
+  active and the responses contain data, add typed `--table` renderers (like
+  `transcript`/`grades`) based on the actual `OgrenciDersProgramListesi` /
+  `OgrenciDersSinavListesi` shapes.
+- **Campus card balance.** `card` shows `0.00`, but that may simply be an empty
+  balance rather than a bug — it hasn't been tested against a card with money on
+  it. When one is available, confirm the balance field (and whether it needs a
+  separate call) and wire it into the table view.
 
 ## License
 
