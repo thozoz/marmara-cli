@@ -86,6 +86,10 @@ A local, self-hosted browser UI over the same API layer — a clean dashboard fo
 your transcript, grades, schedule, exams, cafeteria menu, calendar, news and
 more, plus a summary landing screen (GANO, today's menu, upcoming exams).
 
+<p align="center">
+  <img src="docs/dashboard.png" alt="Marmara Panel Dashboard" width="850">
+</p>
+
 ```sh
 marmara serve --open        # starts on http://127.0.0.1:8080 and opens a browser
 marmara serve --port 9000   # pick a different port
