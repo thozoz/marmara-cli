@@ -168,9 +168,8 @@ func renderCafeteria(raw json.RawMessage) (string, error) {
 func renderCard(raw json.RawMessage) (string, error) {
 	var env struct {
 		Entities []struct {
-			KARTNO string  `json:"KARTNO"`
-			AKTIF  bool    `json:"AKTIF"`
-			Bakiye float64 `json:"Bakiye"`
+			KARTNO string `json:"KARTNO"`
+			AKTIF  bool   `json:"AKTIF"`
 		} `json:"Entities"`
 	}
 	if err := json.Unmarshal(raw, &env); err != nil {
@@ -185,9 +184,9 @@ func renderCard(raw json.RawMessage) (string, error) {
 		if c.AKTIF {
 			durum = "aktif"
 		}
-		rows = append(rows, []string{c.KARTNO, durum, fmt.Sprintf("%.2f", c.Bakiye)})
+		rows = append(rows, []string{c.KARTNO, durum})
 	}
-	return tab([]string{"Kart No", "Durum", "Bakiye"}, rows), nil
+	return tab([]string{"Kart No", "Durum"}, rows), nil
 }
 
 // ---- profile ----

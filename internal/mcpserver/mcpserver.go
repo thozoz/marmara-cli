@@ -46,7 +46,7 @@ func addSimple(s *server.MCPServer, a *api.API, name, desc string, fn simpleFn) 
 func register(s *server.MCPServer, a *api.API) {
 	// Authenticated — student's own data.
 	addSimple(s, a, "profile", "Get your Marmara profile (name, email, type).", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Profile(ctx) })
-	addSimple(s, a, "card", "Campus card balance and gate-pass logs.", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Card(ctx) })
+	addSimple(s, a, "card", "Campus card status and numbers.", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Card(ctx) })
 	addSimple(s, a, "grades", "Your grade list.", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Grades(ctx) })
 	addSimple(s, a, "transcript", "Full academic transcript.", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Transcript(ctx) })
 	addSimple(s, a, "schedule", "Weekly lecture timetable.", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Schedule(ctx) })

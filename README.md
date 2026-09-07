@@ -46,7 +46,7 @@ marmara login              # prompts for username/password (masked)
 MARMARA_USERNAME=... MARMARA_PASSWORD=... marmara login
 
 marmara profile            # your profile
-marmara card               # campus card balance + gate logs
+marmara card               # campus card status + numbers
 marmara grades             # grade list
 marmara grades detail --ders-id <OgrenciDersId>
 marmara transcript
@@ -135,10 +135,6 @@ user and never take an arbitrary student ID.
   active and the responses contain data, add typed `--table` renderers (like
   `transcript`/`grades`) based on the actual `OgrenciDersProgramListesi` /
   `OgrenciDersSinavListesi` shapes.
-- **Campus card balance.** `card` shows `0.00`, but that may simply be an empty
-  balance rather than a bug — it hasn't been tested against a card with money on
-  it. When one is available, confirm the balance field (and whether it needs a
-  separate call) and wire it into the table view.
 
 ### Removed — broken or gone upstream
 

@@ -103,7 +103,7 @@ func NewRoot() *cobra.Command {
 		logoutCmd(),
 		// Authenticated: common
 		dataCmd("profile", "Show your profile", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Profile(ctx) }, renderProfile),
-		dataCmd("card", "Campus card balance and gate logs", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Card(ctx) }, renderCard),
+		dataCmd("card", "Campus card status and numbers", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Card(ctx) }, renderCard),
 		// Authenticated: student
 		gradesCmd(),
 		dataCmd("transcript", "Full academic transcript", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Transcript(ctx) }, renderTranscript),
