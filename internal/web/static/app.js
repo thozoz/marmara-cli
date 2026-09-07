@@ -282,16 +282,15 @@ async function renderSummary() {
   const cards = card.data?.Entities || [];
   let cardBody;
   if (cards.length) {
-    const active = cards.find((c) => c.AKTIF) || cards[0];
-    const others = cards.filter((c) => c !== active);
-    const passives = others.filter((c) => !c.AKTIF).length;
-    const actives = others.filter((c) => c.AKTIF).length;
-    const extra = [];
-    if (actives > 0) extra.push(`+${actives} diğer aktif`);
-    if (passives > 0) extra.push(`+${passives} pasif kart`);
-    cardBody = `<div class="big-num" style="font-size:1.4rem;letter-spacing:0.04em"><span class="grade">${esc(active.KARTNO || "")}</span></div>` +
-      `<div class="muted">${active.AKTIF ? "aktif kart" : "pasif kart"}</div>` +
-      (extra.length ? `<div class="muted" style="margin-top:6px">${extra.join(" · ")}</div>` : "");
+    const primary = cards.find((c) => c.AKTIF) || cards[0];
+    const totalActive = cards.filter((c) => c.AKTIF).length;
+    const totalPassive = cards.length - totalActive;
+    const counts = [];
+    if (totalActive > 0) counts.push(`${totalActive} aktif`);
+    if (totalPassive > 0) counts.push(`${totalPassive} pasif`);
+    cardBody = `<div class="big-num" style="font-size:1.4rem;letter-spacing:0.04em"><span class="grade">${esc(primary.KARTNO || "")}</span></div>` +
+      `<div class="muted">${primary.AKTIF ? "aktif kart" : "pasif kart"}</div>` +
+      (cards.length > 1 ? `<div class="muted" style="margin-top:6px">${cards.length} kart · ${counts.join(" · ")}</div>` : "");
   } else cardBody = `<div class="empty">Kart yok.</div>`;
   const cardSec = `<div class="section"><h2>Kart</h2>${cardBody}</div>`;
 
