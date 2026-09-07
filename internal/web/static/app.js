@@ -128,9 +128,8 @@ function renderCard(d) {
   const rows = list.map((c) => [
     `<span class="grade">${esc(c.KARTNO || "")}</span>`,
     c.AKTIF ? "aktif" : "pasif",
-    fmt(c.Bakiye, 2),
   ]);
-  return tableHTML(["Kart No", "Durum", "Bakiye"], rows, [2]);
+  return tableHTML(["Kart No", "Durum"], rows);
 }
 
 // Menu variants present on a cafeteria day, in display order.
@@ -284,9 +283,8 @@ async function renderSummary() {
   let cardBody;
   if (cards.length) {
     const active = cards.find((c) => c.AKTIF) || cards[0];
-    const bal = Number(active.Bakiye);
-    cardBody = (Number.isFinite(bal) ? `<div class="big-num">${bal.toFixed(2)} <span class="unit">₺</span></div>` : "") +
-      `<div class="muted"><span class="grade">${esc(active.KARTNO || "")}</span> · ${active.AKTIF ? "aktif" : "pasif"}</div>` +
+    cardBody = `<div class="big-num" style="font-size:1.4rem;letter-spacing:0.04em"><span class="grade">${esc(active.KARTNO || "")}</span></div>` +
+      `<div class="muted">${active.AKTIF ? "aktif kart" : "pasif kart"}</div>` +
       (cards.length > 1 ? `<div class="muted" style="margin-top:6px">+${cards.length - 1} pasif kart</div>` : "");
   } else cardBody = `<div class="empty">Kart yok.</div>`;
   const cardSec = `<div class="section"><h2>Kart</h2>${cardBody}</div>`;
