@@ -135,10 +135,6 @@ user and never take an arbitrary student ID.
   active and the responses contain data, add typed `--table` renderers (like
   `transcript`/`grades`) based on the actual `OgrenciDersProgramListesi` /
   `OgrenciDersSinavListesi` shapes.
-- **Campus card balance.** Upstream BYS `GetKartBilgileri` only returns card
-  identity (`KARTNO`) and active state (`AKTIF`). It does not provide any balance
-  or monetary field, so the CLI displays card status without an artificial balance.
-  If an authentic balance endpoint is discovered later, it can be added.
 
 ### Removed — broken or gone upstream
 
