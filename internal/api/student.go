@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"marmara-cli/internal/client"
 )
@@ -35,9 +36,37 @@ func (a *API) Transcript(ctx context.Context) (json.RawMessage, error) {
 	return a.authPost(ctx, pathTranscript, map[string]any{})
 }
 
-// Schedule returns the weekly lecture timetable.
+// Schedule returns the weekly lecture timetable for the active term.
+// The upstream BYS endpoint requires OgretimYili and OgretimDonemi; if omitted,
+// it returns an empty list. This retrieves the current term from the user's
+// Profile before requesting the schedule.
 func (a *API) Schedule(ctx context.Context) (json.RawMessage, error) {
-	return a.authPost(ctx, pathSchedule, map[string]any{})
+	profRaw, err := a.Profile(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("fetch profile for schedule: %w", err)
+	}
+
+	var prof struct {
+		OgretimYili   int `json:"OgretimYili"`
+		OgretimDonemi int `json:"OgretimDonemi"`
+	}
+	if err := json.Unmarshal(profRaw, &prof); err != nil {
+		return nil, fmt.Errorf("decode profile term: %w", err)
+	}
+
+	return a.ScheduleTerm(ctx, prof.OgretimYili, prof.OgretimDonemi)
+}
+
+// ScheduleTerm returns the weekly lecture timetable for a specific academic year and term.
+func (a *API) ScheduleTerm(ctx context.Context, yil, donem int) (json.RawMessage, error) {
+	body := map[string]any{}
+	if yil > 0 {
+		body["OgretimYili"] = yil
+	}
+	if donem > 0 {
+		body["OgretimDonemi"] = donem
+	}
+	return a.authPost(ctx, pathSchedule, body)
 }
 
 // Exams returns midterm/final/resit exam schedules.
