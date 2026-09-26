@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/fs"
+	"net"
 	"net/http"
 	"time"
 
@@ -42,10 +43,11 @@ func New() (*Server, error) {
 	return s, nil
 }
 
-// ListenAndServe binds to 127.0.0.1:port only (never exposed off-host).
-func (s *Server) ListenAndServe(port string) error {
+// ListenAndServe binds to host:port.
+func (s *Server) ListenAndServe(host, port string) error {
+	addr := net.JoinHostPort(host, port)
 	srv := &http.Server{
-		Addr:              "127.0.0.1:" + port,
+		Addr:              addr,
 		Handler:           s.mux,
 		ReadHeaderTimeout: 10 * time.Second,
 	}

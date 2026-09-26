@@ -12,24 +12,30 @@ import (
 )
 
 func serveCmd() *cobra.Command {
+	var host string
 	var port string
 	var open bool
 	cmd := &cobra.Command{
 		Use:   "serve",
-		Short: "Run the local web dashboard (localhost only)",
+		Short: "Run the local web dashboard",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			s, err := web.New()
 			if err != nil {
 				return err
 			}
-			url := "http://127.0.0.1:" + port
+			displayHost := host
+			if displayHost == "" || displayHost == "0.0.0.0" {
+				displayHost = "127.0.0.1"
+			}
+			url := fmt.Sprintf("http://%s:%s", displayHost, port)
 			fmt.Fprintln(os.Stderr, "serving on", url, "(Ctrl+C to stop)")
 			if open {
 				go openBrowser(url)
 			}
-			return s.ListenAndServe(port)
+			return s.ListenAndServe(host, port)
 		},
 	}
+	cmd.Flags().StringVar(&host, "host", "127.0.0.1", "host/IP to listen on (use 0.0.0.0 for LAN access)")
 	cmd.Flags().StringVar(&port, "port", "8080", "port to listen on")
 	cmd.Flags().BoolVar(&open, "open", false, "open the dashboard in your browser")
 	return cmd

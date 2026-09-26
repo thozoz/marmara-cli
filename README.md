@@ -91,11 +91,12 @@ more, plus a summary landing screen (GANO, today's menu, upcoming exams).
 </p>
 
 ```sh
-marmara serve --open        # starts on http://127.0.0.1:8080 and opens a browser
-marmara serve --port 9000   # pick a different port
+marmara serve --open                # starts on http://127.0.0.1:8080 and opens a browser
+marmara serve --port 9000           # pick a different port
+marmara serve --host 0.0.0.0        # expose to local network (LAN)
 ```
 
-Binds to localhost only. If you already logged in via the CLI, the dashboard uses
+Binds to `127.0.0.1` by default (pass `--host 0.0.0.0` for LAN access). If you already logged in via the CLI, the dashboard uses
 the same cached token; otherwise it shows a login form. Your password is sent only
 to the local server and never stored — only tokens are cached, exactly like CLI
 login.
