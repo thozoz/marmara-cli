@@ -1,6 +1,7 @@
 # Binaries (root-anchored so cmd/marmara/ package is NOT ignored)
 /marmara
 /marmara.exe
+*.exe
 *.exe~
 *~
 /dist/

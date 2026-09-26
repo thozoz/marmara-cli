@@ -113,6 +113,20 @@ td.num, th.num { font-family: var(--mono); text-align: right; white-space: nowra
 .sem-head { display: flex; align-items: baseline; gap: 12px; margin: 26px 0 10px; font-family: var(--serif); font-size: 19px; }
 .sem-head .yano { font-family: var(--mono); font-size: 12.5px; color: var(--ink-soft); }
 
+/* --- weekly timetable --- */
+.schedule-board { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 18px; }
+.schedule-day { background: var(--panel); border: 1px solid var(--line); border-radius: 13px; overflow: hidden; box-shadow: var(--shadow); }
+.schedule-day header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 15px 18px 12px; background: var(--card); border-bottom: 2px solid var(--navy); }
+.schedule-day h2 { margin: 0; font-family: var(--serif); font-size: 20px; }
+.schedule-day header span { color: var(--ink-soft); font-family: var(--mono); font-size: 12px; }
+.schedule-course { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 14px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.schedule-course:last-child { border-bottom: none; }
+.schedule-course time { color: var(--navy-2); font-family: var(--mono); font-size: 13px; font-weight: 700; white-space: nowrap; padding-top: 2px; }
+.course-title { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+.course-title strong { font-family: var(--serif); font-size: 16px; }
+.schedule-course p { margin: 4px 0 0; color: var(--ink-soft); font-size: 12.5px; overflow-wrap: anywhere; }
+.slot-count { color: var(--ink-soft); font-family: var(--mono); font-size: 11px; white-space: nowrap; }
+
 /* --- stats --- */
 .stat-row { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 18px; }
 .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 13px; padding: 15px 20px 16px;
@@ -140,6 +154,17 @@ ul.menu li:last-child { border-bottom: none; }
 
 /* --- summary widgets --- */
 .summary-grid .span2 { grid-column: span 2; }
+.section-title-row { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--line); margin-bottom: 12px; }
+.section-title-row h2 { border: none; margin-bottom: 0; }
+.lesson-count { color: var(--ink-soft); font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+ul.today-lessons { list-style: none; padding: 0; margin: 0; }
+ul.today-lessons li { display: grid; grid-template-columns: 105px minmax(0, 1fr); gap: 16px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+ul.today-lessons li:last-child { border-bottom: none; padding-bottom: 0; }
+.today-lessons time { color: var(--navy-2); font-family: var(--mono); font-size: 13px; font-weight: 700; white-space: nowrap; padding-top: 2px; }
+.lesson-detail > div { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+.lesson-detail strong { font-family: var(--serif); font-size: 16px; }
+.lesson-detail p, .next-lesson { color: var(--ink-soft); font-size: 12.5px; margin: 4px 0 0; }
+.no-lessons .empty { padding: 2px 0; }
 .h2-date, .section h2 .h2-date { font-family: var(--mono); font-size: 12px; color: var(--ink-soft); font-weight: 400; letter-spacing: 0; text-transform: none; }
 .kv.flat { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; border: none; padding: 0; box-shadow: none; background: none; max-width: none; }
 .kv.flat dt { font-size: 13px; }
@@ -166,4 +191,6 @@ pre.raw { background: var(--card); border: 1px solid var(--line); border-radius:
   .sidebar { width: auto; border-right: none; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 2px; }
   .sidebar .group { width: 100%; margin: 8px 10px 2px; }
   .content { padding: 20px 18px; }
+  .schedule-board { grid-template-columns: 1fr; }
+  .schedule-course, ul.today-lessons li { grid-template-columns: 1fr; gap: 4px; }
 }
