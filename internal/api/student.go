@@ -53,18 +53,21 @@ func (a *API) Schedule(ctx context.Context) (json.RawMessage, error) {
 	if err := json.Unmarshal(profRaw, &prof); err != nil {
 		return nil, fmt.Errorf("decode profile term: %w", err)
 	}
+	if prof.OgretimYili <= 0 || prof.OgretimDonemi <= 0 {
+		return nil, fmt.Errorf("no active term found in profile (year %d, term %d)", prof.OgretimYili, prof.OgretimDonemi)
+	}
 
 	return a.ScheduleTerm(ctx, prof.OgretimYili, prof.OgretimDonemi)
 }
 
 // ScheduleTerm returns the weekly lecture timetable for a specific academic year and term.
 func (a *API) ScheduleTerm(ctx context.Context, yil, donem int) (json.RawMessage, error) {
-	body := map[string]any{}
-	if yil > 0 {
-		body["OgretimYili"] = yil
+	if yil <= 0 || donem <= 0 {
+		return nil, fmt.Errorf("invalid term parameters: OgretimYili (%d) and OgretimDonemi (%d) must be positive", yil, donem)
 	}
-	if donem > 0 {
-		body["OgretimDonemi"] = donem
+	body := map[string]any{
+		"OgretimYili":   yil,
+		"OgretimDonemi": donem,
 	}
 	return a.authPost(ctx, pathSchedule, body)
 }

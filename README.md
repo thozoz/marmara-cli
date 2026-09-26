@@ -50,7 +50,7 @@ marmara card               # campus card status + numbers
 marmara grades             # grade list
 marmara grades detail --ders-id <OgrenciDersId>
 marmara transcript
-marmara schedule           # weekly timetable
+marmara schedule           # weekly timetable (--table supported)
 marmara exams              # exam schedule
 
 marmara logout             # revoke token + clear cache
@@ -61,7 +61,7 @@ Output formatting:
 - default: compact JSON on one line (easy for scripts/agents to parse)
 - `--pretty`: indented JSON
 - `--table`: human-readable table for supported commands (`transcript`, `grades`,
-  `cafeteria`, `card`, `profile`, `news`, `announcements`, `events`, `calendar`);
+  `schedule`, `cafeteria`, `card`, `profile`, `news`, `announcements`, `events`, `calendar`);
   any command without a table view falls back to JSON automatically
 
 Example:
@@ -130,11 +130,9 @@ user and never take an arbitrary student ID.
 
 ## Roadmap / TODO
 
-- **Table output for `schedule` and `exams`.** These endpoints return empty
-  arrays between terms, so the real field names aren't known yet. Once a term is
-  active and the responses contain data, add typed `--table` renderers (like
-  `transcript`/`grades`) based on the actual `OgrenciDersProgramListesi` /
-  `OgrenciDersSinavListesi` shapes.
+- **Table output for `exams`.** Exam endpoints return empty arrays between terms,
+  so the real field names aren't confirmed yet. Once exam schedules are active,
+  add a typed `--table` renderer based on the actual `OgrenciDersSinavListesi` shape.
 
 ### Removed — broken or gone upstream
 

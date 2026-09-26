@@ -116,7 +116,7 @@ function renderSchedule(d) {
     return (a.Baslangic || "").localeCompare(b.Baslangic || "");
   });
   const rows = sorted.map((s) => [
-    SCHEDULE_DAYS[s.Gun] || `Gün ${s.Gun}`,
+    esc(SCHEDULE_DAYS[s.Gun] || `Gün ${s.Gun ?? ""}`),
     `${esc(s.Baslangic || "")}${s.Bitis ? " - " + esc(s.Bitis) : ""}`,
     `<span class="code">${esc(s.DersKodu || "")}</span>`,
     esc(s.DersAdi || ""),
