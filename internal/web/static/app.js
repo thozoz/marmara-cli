@@ -98,10 +98,32 @@ function renderGrades(d) {
   return tableHTML(["Kod", "Ders", "Harf", "Not"], rows, [3]);
 }
 
+const SCHEDULE_DAYS = {
+  1: "Pazartesi",
+  2: "Salı",
+  3: "Çarşamba",
+  4: "Perşembe",
+  5: "Cuma",
+  6: "Cumartesi",
+  7: "Pazar",
+};
+
 function renderSchedule(d) {
   const list = d?.OgrenciDersProgramListesi || [];
   if (!list.length) return emptyMsg("Aktif dönem ders programı yok (dönem başlayınca dolacak).");
-  return rawJSON(d); // shape unknown until a term is active
+  const sorted = [...list].sort((a, b) => {
+    if ((a.Gun || 0) !== (b.Gun || 0)) return (a.Gun || 0) - (b.Gun || 0);
+    return (a.Baslangic || "").localeCompare(b.Baslangic || "");
+  });
+  const rows = sorted.map((s) => [
+    esc(SCHEDULE_DAYS[s.Gun] || `Gün ${s.Gun ?? ""}`),
+    `${esc(s.Baslangic || "")}${s.Bitis ? " - " + esc(s.Bitis) : ""}`,
+    `<span class="code">${esc(s.DersKodu || "")}</span>`,
+    esc(s.DersAdi || ""),
+    esc((s.Derslik || s.DerslikAdi || "").trim()),
+    esc((s.OgretimUyesi || "").trim()),
+  ]);
+  return tableHTML(["Gün", "Saat", "Kod", "Ders", "Derslik", "Öğretim Üyesi"], rows);
 }
 
 function renderExams(d) {

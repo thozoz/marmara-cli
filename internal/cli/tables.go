@@ -189,6 +189,80 @@ func renderCard(raw json.RawMessage) (string, error) {
 	return tab([]string{"Kart No", "Durum"}, rows), nil
 }
 
+// ---- schedule (weekly timetable) ----
+
+type scheduleEnvelope struct {
+	OgrenciDersProgramListesi []scheduleEntry `json:"OgrenciDersProgramListesi"`
+}
+
+type scheduleEntry struct {
+	Gun          int    `json:"Gun"`
+	Baslangic    string `json:"Baslangic"`
+	Bitis        string `json:"Bitis"`
+	DersKodu     string `json:"DersKodu"`
+	DersAdi      string `json:"DersAdi"`
+	Derslik      string `json:"Derslik"`
+	DerslikAdi   string `json:"DerslikAdi"`
+	OgretimUyesi string `json:"OgretimUyesi"`
+}
+
+var scheduleDays = map[int]string{
+	1: "Pazartesi",
+	2: "Salı",
+	3: "Çarşamba",
+	4: "Perşembe",
+	5: "Cuma",
+	6: "Cumartesi",
+	7: "Pazar",
+}
+
+func renderSchedule(raw json.RawMessage) (string, error) {
+	var env scheduleEnvelope
+	if err := json.Unmarshal(raw, &env); err != nil {
+		return "", err
+	}
+	if len(env.OgrenciDersProgramListesi) == 0 {
+		return "", errors.New("no schedule entries")
+	}
+
+	items := make([]scheduleEntry, len(env.OgrenciDersProgramListesi))
+	copy(items, env.OgrenciDersProgramListesi)
+	sort.SliceStable(items, func(i, j int) bool {
+		if items[i].Gun != items[j].Gun {
+			return items[i].Gun < items[j].Gun
+		}
+		if items[i].Baslangic != items[j].Baslangic {
+			return items[i].Baslangic < items[j].Baslangic
+		}
+		return items[i].DersKodu < items[j].DersKodu
+	})
+
+	var rows [][]string
+	for _, it := range items {
+		gun := scheduleDays[it.Gun]
+		if gun == "" {
+			gun = fmt.Sprintf("Gün %d", it.Gun)
+		}
+		saat := it.Baslangic
+		if it.Bitis != "" {
+			saat = fmt.Sprintf("%s-%s", it.Baslangic, it.Bitis)
+		}
+		derslik := strings.TrimSpace(it.Derslik)
+		if derslik == "" {
+			derslik = strings.TrimSpace(it.DerslikAdi)
+		}
+		rows = append(rows, []string{
+			gun,
+			saat,
+			it.DersKodu,
+			it.DersAdi,
+			derslik,
+			strings.TrimSpace(it.OgretimUyesi),
+		})
+	}
+	return tab([]string{"Gün", "Saat", "Kod", "Ders", "Derslik", "Öğretim Üyesi"}, rows), nil
+}
+
 // ---- profile ----
 
 func renderProfile(raw json.RawMessage) (string, error) {
