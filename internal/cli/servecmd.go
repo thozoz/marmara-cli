@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"runtime"
@@ -23,12 +24,16 @@ func serveCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			displayHost := host
-			if displayHost == "" || displayHost == "0.0.0.0" {
-				displayHost = "127.0.0.1"
+			url := fmt.Sprintf("http://%s:%s", displayHost(host), port)
+			if listenAll(host) {
+				fmt.Fprintln(os.Stderr, "serving on all interfaces (Ctrl+C to stop)")
+				for _, ip := range lanIPs() {
+					fmt.Fprintln(os.Stderr, "  LAN: http://"+ip+":"+port)
+				}
+				fmt.Fprintln(os.Stderr, "  local: http://127.0.0.1:"+port)
+			} else {
+				fmt.Fprintln(os.Stderr, "serving on", url, "(Ctrl+C to stop)")
 			}
-			url := fmt.Sprintf("http://%s:%s", displayHost, port)
-			fmt.Fprintln(os.Stderr, "serving on", url, "(Ctrl+C to stop)")
 			if open {
 				go openBrowser(url)
 			}
@@ -39,6 +44,33 @@ func serveCmd() *cobra.Command {
 	cmd.Flags().StringVar(&port, "port", "8080", "port to listen on")
 	cmd.Flags().BoolVar(&open, "open", false, "open the dashboard in your browser")
 	return cmd
+}
+
+func listenAll(host string) bool {
+	return host == "" || host == "0.0.0.0" || host == "::" || host == "[::]"
+}
+
+func displayHost(host string) string {
+	if listenAll(host) {
+		return "127.0.0.1"
+	}
+	return host
+}
+
+func lanIPs() []string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return nil
+	}
+	var ips []string
+	for _, a := range addrs {
+		n, ok := a.(*net.IPNet)
+		if !ok || n.IP.IsLoopback() || n.IP.To4() == nil {
+			continue
+		}
+		ips = append(ips, n.IP.String())
+	}
+	return ips
 }
 
 func openBrowser(url string) {
