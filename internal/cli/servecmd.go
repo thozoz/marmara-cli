@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 
 	"marmara-cli/internal/web"
 
@@ -20,6 +21,9 @@ func serveCmd() *cobra.Command {
 		Use:   "serve",
 		Short: "Run the local web dashboard",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if strings.Contains(host, ":") {
+				return fmt.Errorf("IPv6 desteklenmiyor; --host için 127.0.0.1, 0.0.0.0 veya bir IPv4 adresi kullanın")
+			}
 			s, err := web.New()
 			if err != nil {
 				return err
@@ -40,14 +44,14 @@ func serveCmd() *cobra.Command {
 			return s.ListenAndServe(host, port)
 		},
 	}
-	cmd.Flags().StringVar(&host, "host", "127.0.0.1", "host/IP to listen on (use 0.0.0.0 for LAN access)")
+	cmd.Flags().StringVar(&host, "host", "127.0.0.1", "IPv4 address or hostname to listen on (use 0.0.0.0 for LAN access; IPv6 is unsupported)")
 	cmd.Flags().StringVar(&port, "port", "8080", "port to listen on")
 	cmd.Flags().BoolVar(&open, "open", false, "open the dashboard in your browser")
 	return cmd
 }
 
 func listenAll(host string) bool {
-	return host == "" || host == "0.0.0.0" || host == "::" || host == "[::]"
+	return host == "" || host == "0.0.0.0"
 }
 
 func displayHost(host string) string {

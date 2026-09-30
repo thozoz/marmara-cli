@@ -43,7 +43,7 @@ func New() (*Server, error) {
 	return s, nil
 }
 
-// ListenAndServe binds to host:port.
+// ListenAndServe binds to host:port over IPv4 only.
 func (s *Server) ListenAndServe(host, port string) error {
 	addr := net.JoinHostPort(host, port)
 	srv := &http.Server{
@@ -51,7 +51,11 @@ func (s *Server) ListenAndServe(host, port string) error {
 		Handler:           s.mux,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
-	return srv.ListenAndServe()
+	listener, err := net.Listen("tcp4", addr)
+	if err != nil {
+		return err
+	}
+	return srv.Serve(listener)
 }
 
 func (s *Server) routes() {
