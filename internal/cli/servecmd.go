@@ -2,9 +2,11 @@ package cli
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 
 	"marmara-cli/internal/web"
 
@@ -19,26 +21,60 @@ func serveCmd() *cobra.Command {
 		Use:   "serve",
 		Short: "Run the local web dashboard",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if strings.Contains(host, ":") {
+				return fmt.Errorf("IPv6 desteklenmiyor; --host için 127.0.0.1, 0.0.0.0 veya bir IPv4 adresi kullanın")
+			}
 			s, err := web.New()
 			if err != nil {
 				return err
 			}
-			displayHost := host
-			if displayHost == "" || displayHost == "0.0.0.0" {
-				displayHost = "127.0.0.1"
+			url := fmt.Sprintf("http://%s:%s", displayHost(host), port)
+			if listenAll(host) {
+				fmt.Fprintln(os.Stderr, "serving on all interfaces (Ctrl+C to stop)")
+				for _, ip := range lanIPs() {
+					fmt.Fprintln(os.Stderr, "  LAN: http://"+ip+":"+port)
+				}
+				fmt.Fprintln(os.Stderr, "  local: http://127.0.0.1:"+port)
+			} else {
+				fmt.Fprintln(os.Stderr, "serving on", url, "(Ctrl+C to stop)")
 			}
-			url := fmt.Sprintf("http://%s:%s", displayHost, port)
-			fmt.Fprintln(os.Stderr, "serving on", url, "(Ctrl+C to stop)")
 			if open {
 				go openBrowser(url)
 			}
 			return s.ListenAndServe(host, port)
 		},
 	}
-	cmd.Flags().StringVar(&host, "host", "127.0.0.1", "host/IP to listen on (use 0.0.0.0 for LAN access)")
+	cmd.Flags().StringVar(&host, "host", "127.0.0.1", "IPv4 address or hostname to listen on (use 0.0.0.0 for LAN access; IPv6 is unsupported)")
 	cmd.Flags().StringVar(&port, "port", "8080", "port to listen on")
 	cmd.Flags().BoolVar(&open, "open", false, "open the dashboard in your browser")
 	return cmd
+}
+
+func listenAll(host string) bool {
+	return host == "" || host == "0.0.0.0"
+}
+
+func displayHost(host string) string {
+	if listenAll(host) {
+		return "127.0.0.1"
+	}
+	return host
+}
+
+func lanIPs() []string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return nil
+	}
+	var ips []string
+	for _, a := range addrs {
+		n, ok := a.(*net.IPNet)
+		if !ok || n.IP.IsLoopback() || n.IP.To4() == nil {
+			continue
+		}
+		ips = append(ips, n.IP.String())
+	}
+	return ips
 }
 
 func openBrowser(url string) {
