@@ -121,6 +121,13 @@ func (c *Client) Do(ctx context.Context, req Request, out any) error {
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<20)) // cap at 8 MiB
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		// BYS sends this known login error with literal Unicode replacement
+		// characters already in its UTF-8 JSON; changing the charset cannot fix it.
+		if httpReq.URL.Hostname() == "bys.marmara.edu.tr" {
+			raw = bytes.ReplaceAll(raw,
+				[]byte("BYS kullan�c� ad� veya �ifre hatal� olabilir."),
+				[]byte("BYS kullanıcı adı veya şifre hatalı olabilir."))
+		}
 		return &APIError{Status: resp.StatusCode, Body: string(raw), URL: httpReq.URL.String()}
 	}
 
@@ -134,8 +141,9 @@ func (c *Client) Do(ctx context.Context, req Request, out any) error {
 }
 
 func truncate(s string, n int) string {
-	if len(s) <= n {
+	runes := []rune(s)
+	if len(runes) <= n {
 		return s
 	}
-	return s[:n] + "..."
+	return string(runes[:n]) + "..."
 }

@@ -111,19 +111,106 @@ const SCHEDULE_DAYS = {
 function renderSchedule(d) {
   const list = d?.OgrenciDersProgramListesi || [];
   if (!list.length) return emptyMsg("Aktif dönem ders programı yok (dönem başlayınca dolacak).");
-  const sorted = [...list].sort((a, b) => {
-    if ((a.Gun || 0) !== (b.Gun || 0)) return (a.Gun || 0) - (b.Gun || 0);
-    return (a.Baslangic || "").localeCompare(b.Baslangic || "");
-  });
-  const rows = sorted.map((s) => [
-    esc(SCHEDULE_DAYS[s.Gun] || `Gün ${s.Gun ?? ""}`),
-    `${esc(s.Baslangic || "")}${s.Bitis ? " - " + esc(s.Bitis) : ""}`,
-    `<span class="code">${esc(s.DersKodu || "")}</span>`,
-    esc(s.DersAdi || ""),
-    esc((s.Derslik || s.DerslikAdi || "").trim()),
-    esc((s.OgretimUyesi || "").trim()),
-  ]);
-  return tableHTML(["Gün", "Saat", "Kod", "Ders", "Derslik", "Öğretim Üyesi"], rows);
+  const days = [];
+  for (let day = 1; day <= 7; day += 1) {
+    const entries = sortScheduleEntries(list.filter((entry) => Number(entry.Gun) === day));
+    if (!entries.length) continue;
+    const lessons = entries.map((entry) => {
+      const range = `${esc(entry.Baslangic || "")}–${esc(entry.Bitis || "")}`;
+      const room = esc(summaryRoom(entry));
+      const lecturer = esc(String(entry.OgretimUyesi || "").trim());
+      return `<article class="schedule-course">
+        <time>${range}</time>
+        <div>
+          <div class="course-title"><span class="code">${esc(entry.DersKodu || "")}</span><strong>${esc(entry.DersAdi || "")}</strong></div>
+          <p>${room}${lecturer ? ` · ${lecturer}` : ""}</p>
+        </div>
+      </article>`;
+    }).join("");
+    days.push(`<section class="schedule-day"><header><h2>${esc(SCHEDULE_DAYS[day] || `Gün ${day}`)}</h2><span>${entries.length} ders saati</span></header>${lessons}</section>`);
+  }
+  return `<div class="schedule-board">${days.join("")}</div>`;
+}
+
+const SCHEDULE_TIME_ZONE = "Europe/Istanbul";
+let todayScheduleTimer = null;
+let viewRequestId = 0;
+
+function scheduleClock(date = new Date()) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", {
+    timeZone: SCHEDULE_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(date).map(({ type, value }) => [type, value]));
+  const weekday = new Date(Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day))).getUTCDay() || 7;
+  return { weekday, minutes: Number(parts.hour) * 60 + Number(parts.minute) };
+}
+
+function scheduleMinutes(value) {
+  const match = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(String(value || "").trim());
+  if (!match || Number(match[1]) > 23 || Number(match[2]) > 59) return null;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+function summaryRoom(entry) {
+  const named = String(entry.DerslikAdi || "").trim().replace(/^\(|\)$/g, "");
+  const raw = String(entry.Derslik || "").trim();
+  const parts = raw.split("-").map((x) => x.trim()).filter(Boolean);
+  const location = parts.length > 2 ? parts.at(-1) : raw;
+  return [location, named && named !== location ? named : ""].filter(Boolean).join(" · ") || "Derslik bilgisi yok";
+}
+
+function sortScheduleEntries(entries) {
+  return [...entries].sort((a, b) => (scheduleMinutes(a.Baslangic) ?? Infinity) - (scheduleMinutes(b.Baslangic) ?? Infinity));
+}
+
+function scheduleRows(entries, minutes) {
+  const pause = findScheduleBreak(entries, minutes);
+  return `<ul class="today-lessons">${sortScheduleEntries(entries).map((entry) => {
+    const start = scheduleMinutes(entry.Baslangic);
+    const end = scheduleMinutes(entry.Bitis);
+    const current = start !== null && end !== null && start <= minutes && minutes < end;
+    const range = `${esc(entry.Baslangic || "")}–${esc(entry.Bitis || "")}`;
+    const detail = [summaryRoom(entry), String(entry.OgretimUyesi || "").trim()].filter(Boolean).map(esc).join(" · ");
+    const breakRow = entry === pause?.next.entry
+      ? `<li class="break-row"><div class="schedule-break"><strong>Teneffüs · Sıradaki derse ${pause.next.start - minutes} dk kaldı</strong><p>${esc(pause.previous.entry.Bitis)}–${esc(pause.next.entry.Baslangic)}</p></div></li>`
+      : "";
+    return `${breakRow}<li${current ? ' class="current-lesson" aria-current="time"' : ""}>
+      <time>${range}</time>
+      <div class="lesson-detail"><div><span class="code">${esc(entry.DersKodu || "")}</span><strong>${esc(entry.DersAdi || "")}</strong>${current ? `<span class="current-lesson-badge">Şu an</span><span class="lesson-remaining">Bitmesine ${end - minutes} dk kaldı</span>` : ""}</div><p>${detail}</p></div>
+    </li>`;
+  }).join("")}</ul>`;
+}
+
+function findScheduleBreak(entries, minutes) {
+  const slots = sortScheduleEntries(entries).map((entry) => ({
+    entry, start: scheduleMinutes(entry.Baslangic), end: scheduleMinutes(entry.Bitis),
+  })).filter(({ start, end }) => start !== null && end !== null && end > start);
+  if (slots.some(({ start, end }) => start <= minutes && minutes < end)) return null;
+  const previous = slots.filter(({ end }) => end <= minutes).sort((a, b) => b.end - a.end)[0];
+  const next = slots.find(({ start }) => start > minutes);
+  return previous && next ? { previous, next } : null;
+}
+
+function renderTodaySchedule(d, now = new Date()) {
+  const list = d?.OgrenciDersProgramListesi || [];
+  const { weekday: day, minutes } = scheduleClock(now);
+  const today = sortScheduleEntries(list.filter((entry) => Number(entry.Gun) === day));
+  const dateLabel = new Intl.DateTimeFormat("tr-TR", { timeZone: SCHEDULE_TIME_ZONE, weekday: "long", day: "numeric", month: "long" }).format(now);
+  if (today.length) {
+    return `<div class="section today-schedule"><div class="section-title-row"><h2>Bugünkü Dersler <span class="h2-date">${esc(dateLabel)}</span></h2><span class="lesson-count">${today.length} ders</span></div>${scheduleRows(today, minutes)}</div>`;
+  }
+
+  let nextDay = null;
+  for (let offset = 1; offset <= 7; offset += 1) {
+    const candidate = ((day - 1 + offset) % 7) + 1;
+    const entries = sortScheduleEntries(list.filter((entry) => Number(entry.Gun) === candidate));
+    if (entries.length) { nextDay = { candidate, entries }; break; }
+  }
+  const nextLabel = nextDay ? SCHEDULE_DAYS[nextDay.candidate] : "";
+  const nextText = nextDay
+    ? `Sıradaki ders günü: ${nextLabel} · ${nextDay.entries[0].Baslangic} ${nextDay.entries[0].DersAdi}`
+    : "Bu dönem için ders kaydı yok.";
+  return `<div class="section today-schedule no-lessons"><div class="section-title-row"><h2>Bugünkü Dersler <span class="h2-date">${esc(dateLabel)}</span></h2></div><div class="empty">Bugün ders yok.</div><p class="next-lesson">${esc(nextText)}</p></div>`;
 }
 
 function renderExams(d) {
@@ -258,14 +345,16 @@ function miniList(items, limit) {
   return rows ? `<ul class="mini">${rows}</ul>` : `<div class="empty">Kayıt yok.</div>`;
 }
 
-async function renderSummary() {
+async function renderSummary(requestId) {
   setPanel(`<div class="loading">Yükleniyor…</div>`);
-  const [tr, caf, ex, prof, card, news, ann, cal] = await Promise.all([
+  const [tr, caf, ex, prof, card, news, ann, cal, schedule] = await Promise.all([
     api("/api/transcript"), api("/api/cafeteria"), api("/api/exams"),
     api("/api/profile"), api("/api/card"),
     api("/api/news"), api("/api/announcements"), api("/api/calendar"),
+    api("/api/schedule"),
   ]);
-  if ([tr, caf, ex, prof, card].some((r) => r.status === 401)) { showLogin(); return; }
+  if (requestId !== viewRequestId) return;
+  if ([tr, caf, ex, prof, card, schedule].some((r) => r.status === 401)) { showLogin(); return; }
 
   let html = "";
 
@@ -279,6 +368,12 @@ async function renderSummary() {
       <div class="stat"><div class="label">ECTS</div><div class="value">${fmt(t.TamamlananEctsKredi)}</div></div>
     </div>`;
   }
+
+  // A full-width daily timetable sits before the cafeteria so the dashboard
+  // answers the two morning questions first: where do I need to be, and what can I eat?
+  html += schedule.ok
+    ? renderTodaySchedule(schedule.data)
+    : `<div class="section today-schedule"><h2>Bugünkü Dersler</h2><div class="empty">Ders programı şu an yüklenemedi.</div></div>`;
 
   // Menu (all variants + kcal) — full width on top. Show today if available,
   // otherwise the most recent published day.
@@ -342,12 +437,22 @@ async function renderSummary() {
   </div>`;
 
   setPanel(html);
+  if (schedule.ok) {
+    todayScheduleTimer = setInterval(() => {
+      const section = $("#panel .today-schedule");
+      if (section) section.outerHTML = renderTodaySchedule(schedule.data);
+    }, 15000);
+  }
 }
 
 // ---- shell / router ----
 function emptyMsg(m) { return `<div class="empty">${esc(m)}</div>`; }
 function rawJSON(d) { return `<pre class="raw">${esc(JSON.stringify(d, null, 2))}</pre>`; }
-function setPanel(html) { $("#panel").innerHTML = html; }
+function setPanel(html) {
+  clearInterval(todayScheduleTimer);
+  todayScheduleTimer = null;
+  $("#panel").innerHTML = html;
+}
 function setTitle(t) { $("#panel-title").textContent = t; }
 
 function buildNav() {
@@ -368,14 +473,16 @@ function buildNav() {
 }
 
 async function selectView(key) {
+  const requestId = ++viewRequestId;
   document.querySelectorAll(".sidebar a").forEach((a) =>
     a.classList.toggle("active", a.dataset.key === key));
   const v = VIEWS[key];
   setTitle(v.label);
-  if (v.special) { renderSummary(); return; }
+  if (v.special) { await renderSummary(requestId); return; }
 
   setPanel(`<div class="loading">Yükleniyor…</div>`);
   const r = await api("/api/" + v.endpoint);
+  if (requestId !== viewRequestId) return;
   if (r.status === 401) { showLogin(); return; }
   if (!r.ok) { setPanel(`<div class="err-box">Hata: ${esc(r.data?.error || r.status)}</div>`); return; }
   try { setPanel(v.render(r.data)); }
@@ -413,7 +520,13 @@ function toggleTheme() {
 }
 
 // ---- auth ----
-function showLogin() { $("#app").hidden = true; $("#login").hidden = false; }
+function showLogin() {
+  viewRequestId += 1;
+  clearInterval(todayScheduleTimer);
+  todayScheduleTimer = null;
+  $("#app").hidden = true;
+  $("#login").hidden = false;
+}
 function showApp() { $("#login").hidden = true; $("#app").hidden = false; }
 
 async function boot() {

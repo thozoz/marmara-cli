@@ -125,7 +125,19 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.auth.Login(r.Context(), body.Username, body.Password); err != nil {
-		writeErr(w, http.StatusUnauthorized, err.Error())
+		message := err.Error()
+		var apiErr *client.APIError
+		if errors.As(err, &apiErr) {
+			var response struct {
+				Error struct {
+					Message string `json:"Message"`
+				} `json:"Error"`
+			}
+			if json.Unmarshal([]byte(apiErr.Body), &response) == nil && response.Error.Message != "" {
+				message = response.Error.Message
+			}
+		}
+		writeErr(w, http.StatusUnauthorized, message)
 		return
 	}
 	writeJSON(w, map[string]bool{"ok": true})
