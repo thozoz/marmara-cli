@@ -132,9 +132,22 @@ function renderSchedule(d) {
   return `<div class="schedule-board">${days.join("")}</div>`;
 }
 
-function weekdayNumber(date = new Date()) {
-  // JavaScript uses Sunday=0; BYS uses Monday=1 through Sunday=7.
-  return date.getDay() || 7;
+const SCHEDULE_TIME_ZONE = "Europe/Istanbul";
+let todayScheduleTimer = null;
+
+function scheduleClock(date = new Date()) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", {
+    timeZone: SCHEDULE_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(date).map(({ type, value }) => [type, value]));
+  const weekday = new Date(Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day))).getUTCDay() || 7;
+  return { weekday, minutes: Number(parts.hour) * 60 + Number(parts.minute) };
+}
+
+function scheduleMinutes(value) {
+  const match = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(String(value || "").trim());
+  if (!match || Number(match[1]) > 23 || Number(match[2]) > 59) return null;
+  return Number(match[1]) * 60 + Number(match[2]);
 }
 
 function summaryRoom(entry) {
@@ -148,24 +161,27 @@ function sortScheduleEntries(entries) {
   return [...entries].sort((a, b) => String(a.Baslangic || "").localeCompare(String(b.Baslangic || "")));
 }
 
-function scheduleRows(entries) {
+function scheduleRows(entries, minutes) {
   return `<ul class="today-lessons">${sortScheduleEntries(entries).map((entry) => {
+    const start = scheduleMinutes(entry.Baslangic);
+    const end = scheduleMinutes(entry.Bitis);
+    const current = start !== null && end !== null && start <= minutes && minutes < end;
     const range = `${esc(entry.Baslangic || "")}–${esc(entry.Bitis || "")}`;
     const detail = [summaryRoom(entry), String(entry.OgretimUyesi || "").trim()].filter(Boolean).map(esc).join(" · ");
-    return `<li>
+    return `<li${current ? ' class="current-lesson" aria-current="time"' : ""}>
       <time>${range}</time>
-      <div class="lesson-detail"><div><span class="code">${esc(entry.DersKodu || "")}</span><strong>${esc(entry.DersAdi || "")}</strong></div><p>${detail}</p></div>
+      <div class="lesson-detail"><div><span class="code">${esc(entry.DersKodu || "")}</span><strong>${esc(entry.DersAdi || "")}</strong>${current ? '<span class="current-lesson-badge">Şu an</span>' : ""}</div><p>${detail}</p></div>
     </li>`;
   }).join("")}</ul>`;
 }
 
-function renderTodaySchedule(d) {
+function renderTodaySchedule(d, now = new Date()) {
   const list = d?.OgrenciDersProgramListesi || [];
-  const day = weekdayNumber();
+  const { weekday: day, minutes } = scheduleClock(now);
   const today = sortScheduleEntries(list.filter((entry) => Number(entry.Gun) === day));
-  const dateLabel = new Intl.DateTimeFormat("tr-TR", { weekday: "long", day: "numeric", month: "long" }).format(new Date());
+  const dateLabel = new Intl.DateTimeFormat("tr-TR", { timeZone: SCHEDULE_TIME_ZONE, weekday: "long", day: "numeric", month: "long" }).format(now);
   if (today.length) {
-    return `<div class="section today-schedule"><div class="section-title-row"><h2>Bugünkü Dersler <span class="h2-date">${esc(dateLabel)}</span></h2><span class="lesson-count">${today.length} ders</span></div>${scheduleRows(today)}</div>`;
+    return `<div class="section today-schedule"><div class="section-title-row"><h2>Bugünkü Dersler <span class="h2-date">${esc(dateLabel)}</span></h2><span class="lesson-count">${today.length} ders</span></div>${scheduleRows(today, minutes)}</div>`;
   }
 
   let nextDay = null;
@@ -404,12 +420,22 @@ async function renderSummary() {
   </div>`;
 
   setPanel(html);
+  if (schedule.ok) {
+    todayScheduleTimer = setInterval(() => {
+      const section = $("#panel .today-schedule");
+      if (section) section.outerHTML = renderTodaySchedule(schedule.data);
+    }, 15000);
+  }
 }
 
 // ---- shell / router ----
 function emptyMsg(m) { return `<div class="empty">${esc(m)}</div>`; }
 function rawJSON(d) { return `<pre class="raw">${esc(JSON.stringify(d, null, 2))}</pre>`; }
-function setPanel(html) { $("#panel").innerHTML = html; }
+function setPanel(html) {
+  clearInterval(todayScheduleTimer);
+  todayScheduleTimer = null;
+  $("#panel").innerHTML = html;
+}
 function setTitle(t) { $("#panel-title").textContent = t; }
 
 function buildNav() {

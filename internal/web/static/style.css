@@ -160,6 +160,8 @@ ul.menu li:last-child { border-bottom: none; }
 ul.today-lessons { list-style: none; padding: 0; margin: 0; }
 ul.today-lessons li { display: grid; grid-template-columns: 105px minmax(0, 1fr); gap: 16px; padding: 11px 0; border-bottom: 1px solid var(--line); }
 ul.today-lessons li:last-child { border-bottom: none; padding-bottom: 0; }
+ul.today-lessons li.current-lesson { background: var(--card); border-left: 4px solid var(--gold); border-radius: 8px; padding: 12px; box-shadow: inset 0 0 0 1px var(--line); }
+.current-lesson-badge { background: var(--navy); color: var(--navy-ink); border-radius: 999px; padding: 2px 9px; font-family: var(--sans); font-size: 11px; font-weight: 700; white-space: nowrap; }
 .today-lessons time { color: var(--navy-2); font-family: var(--mono); font-size: 13px; font-weight: 700; white-space: nowrap; padding-top: 2px; }
 .lesson-detail > div { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; }
 .lesson-detail strong { font-family: var(--serif); font-size: 16px; }
