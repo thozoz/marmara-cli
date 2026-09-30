@@ -162,29 +162,31 @@ function sortScheduleEntries(entries) {
 }
 
 function scheduleRows(entries, minutes) {
+  const pause = findScheduleBreak(entries, minutes);
   return `<ul class="today-lessons">${sortScheduleEntries(entries).map((entry) => {
     const start = scheduleMinutes(entry.Baslangic);
     const end = scheduleMinutes(entry.Bitis);
     const current = start !== null && end !== null && start <= minutes && minutes < end;
     const range = `${esc(entry.Baslangic || "")}–${esc(entry.Bitis || "")}`;
     const detail = [summaryRoom(entry), String(entry.OgretimUyesi || "").trim()].filter(Boolean).map(esc).join(" · ");
-    return `<li${current ? ' class="current-lesson" aria-current="time"' : ""}>
+    const breakRow = entry === pause?.next.entry
+      ? `<li class="break-row"><div class="schedule-break"><strong>Teneffüs · Sıradaki derse ${pause.next.start - minutes} dk kaldı</strong><p>${esc(pause.previous.entry.Bitis)}–${esc(pause.next.entry.Baslangic)}</p></div></li>`
+      : "";
+    return `${breakRow}<li${current ? ' class="current-lesson" aria-current="time"' : ""}>
       <time>${range}</time>
       <div class="lesson-detail"><div><span class="code">${esc(entry.DersKodu || "")}</span><strong>${esc(entry.DersAdi || "")}</strong>${current ? `<span class="current-lesson-badge">Şu an</span><span class="lesson-remaining">Bitmesine ${end - minutes} dk kaldı</span>` : ""}</div><p>${detail}</p></div>
     </li>`;
   }).join("")}</ul>`;
 }
 
-function renderScheduleBreak(entries, minutes) {
+function findScheduleBreak(entries, minutes) {
   const slots = sortScheduleEntries(entries).map((entry) => ({
     entry, start: scheduleMinutes(entry.Baslangic), end: scheduleMinutes(entry.Bitis),
   })).filter(({ start, end }) => start !== null && end !== null && end > start);
-  if (slots.some(({ start, end }) => start <= minutes && minutes < end)) return "";
+  if (slots.some(({ start, end }) => start <= minutes && minutes < end)) return null;
   const previous = slots.filter(({ end }) => end <= minutes).sort((a, b) => b.end - a.end)[0];
   const next = slots.find(({ start }) => start > minutes);
-  if (!previous || !next) return "";
-  const label = ({ entry }) => `${esc(entry.DersKodu || "")} ${esc(entry.DersAdi || "")}`;
-  return `<div class="schedule-break"><strong>Teneffüs · Sıradaki derse ${next.start - minutes} dk kaldı</strong><p>${label(previous)} (${esc(previous.entry.Bitis)}) → ${label(next)} (${esc(next.entry.Baslangic)})</p></div>`;
+  return previous && next ? { previous, next } : null;
 }
 
 function renderTodaySchedule(d, now = new Date()) {
@@ -193,7 +195,7 @@ function renderTodaySchedule(d, now = new Date()) {
   const today = sortScheduleEntries(list.filter((entry) => Number(entry.Gun) === day));
   const dateLabel = new Intl.DateTimeFormat("tr-TR", { timeZone: SCHEDULE_TIME_ZONE, weekday: "long", day: "numeric", month: "long" }).format(now);
   if (today.length) {
-    return `<div class="section today-schedule"><div class="section-title-row"><h2>Bugünkü Dersler <span class="h2-date">${esc(dateLabel)}</span></h2><span class="lesson-count">${today.length} ders</span></div>${renderScheduleBreak(today, minutes)}${scheduleRows(today, minutes)}</div>`;
+    return `<div class="section today-schedule"><div class="section-title-row"><h2>Bugünkü Dersler <span class="h2-date">${esc(dateLabel)}</span></h2><span class="lesson-count">${today.length} ders</span></div>${scheduleRows(today, minutes)}</div>`;
   }
 
   let nextDay = null;
