@@ -134,6 +134,7 @@ function renderSchedule(d) {
 
 const SCHEDULE_TIME_ZONE = "Europe/Istanbul";
 let todayScheduleTimer = null;
+let viewRequestId = 0;
 
 function scheduleClock(date = new Date()) {
   const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", {
@@ -152,13 +153,14 @@ function scheduleMinutes(value) {
 
 function summaryRoom(entry) {
   const named = String(entry.DerslikAdi || "").trim().replace(/^\(|\)$/g, "");
-  if (named) return named;
-  const parts = String(entry.Derslik || "").split("-").map((x) => x.trim()).filter(Boolean);
-  return parts.at(-1) || "Derslik bilgisi yok";
+  const raw = String(entry.Derslik || "").trim();
+  const parts = raw.split("-").map((x) => x.trim()).filter(Boolean);
+  const location = parts.length > 2 ? parts.at(-1) : raw;
+  return [location, named && named !== location ? named : ""].filter(Boolean).join(" · ") || "Derslik bilgisi yok";
 }
 
 function sortScheduleEntries(entries) {
-  return [...entries].sort((a, b) => String(a.Baslangic || "").localeCompare(String(b.Baslangic || "")));
+  return [...entries].sort((a, b) => (scheduleMinutes(a.Baslangic) ?? Infinity) - (scheduleMinutes(b.Baslangic) ?? Infinity));
 }
 
 function scheduleRows(entries, minutes) {
@@ -343,7 +345,7 @@ function miniList(items, limit) {
   return rows ? `<ul class="mini">${rows}</ul>` : `<div class="empty">Kayıt yok.</div>`;
 }
 
-async function renderSummary() {
+async function renderSummary(requestId) {
   setPanel(`<div class="loading">Yükleniyor…</div>`);
   const [tr, caf, ex, prof, card, news, ann, cal, schedule] = await Promise.all([
     api("/api/transcript"), api("/api/cafeteria"), api("/api/exams"),
@@ -351,6 +353,7 @@ async function renderSummary() {
     api("/api/news"), api("/api/announcements"), api("/api/calendar"),
     api("/api/schedule"),
   ]);
+  if (requestId !== viewRequestId) return;
   if ([tr, caf, ex, prof, card, schedule].some((r) => r.status === 401)) { showLogin(); return; }
 
   let html = "";
@@ -470,14 +473,16 @@ function buildNav() {
 }
 
 async function selectView(key) {
+  const requestId = ++viewRequestId;
   document.querySelectorAll(".sidebar a").forEach((a) =>
     a.classList.toggle("active", a.dataset.key === key));
   const v = VIEWS[key];
   setTitle(v.label);
-  if (v.special) { renderSummary(); return; }
+  if (v.special) { await renderSummary(requestId); return; }
 
   setPanel(`<div class="loading">Yükleniyor…</div>`);
   const r = await api("/api/" + v.endpoint);
+  if (requestId !== viewRequestId) return;
   if (r.status === 401) { showLogin(); return; }
   if (!r.ok) { setPanel(`<div class="err-box">Hata: ${esc(r.data?.error || r.status)}</div>`); return; }
   try { setPanel(v.render(r.data)); }
@@ -515,7 +520,13 @@ function toggleTheme() {
 }
 
 // ---- auth ----
-function showLogin() { $("#app").hidden = true; $("#login").hidden = false; }
+function showLogin() {
+  viewRequestId += 1;
+  clearInterval(todayScheduleTimer);
+  todayScheduleTimer = null;
+  $("#app").hidden = true;
+  $("#login").hidden = false;
+}
 function showApp() { $("#login").hidden = true; $("#app").hidden = false; }
 
 async function boot() {
