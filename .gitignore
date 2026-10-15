@@ -12,6 +12,7 @@
 
 # Logs
 *.log
+*temp
 
 # OS junk
 .DS_Store
