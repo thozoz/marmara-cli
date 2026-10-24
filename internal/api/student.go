@@ -3,7 +3,10 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"marmara-cli/internal/client"
 )
@@ -25,10 +28,59 @@ func (a *API) Grades(ctx context.Context) (json.RawMessage, error) {
 	return a.authPost(ctx, pathGrades, map[string]any{})
 }
 
+// ParseDersID converts user-supplied input (CLI flag, web query, MCP argument)
+// into an OgrenciDersId. The upstream model binder expects a JSON integer, so
+// the value must be numeric; empty and non-numeric input is rejected here with
+// a message that says where to get a valid id.
+func ParseDersID(s string) (int64, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0, errors.New("ders id is required (OgrenciDersId from `marmara grades`)")
+	}
+	id, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid ders id %q: must be numeric (OgrenciDersId from `marmara grades`)", s)
+	}
+	if id <= 0 {
+		return 0, fmt.Errorf("invalid ders id %d: must be positive", id)
+	}
+	return id, nil
+}
+
 // GradeDetail returns the component breakdown for a single course enrolment.
-// dersID is the OgrenciDersId from the grade list.
-func (a *API) GradeDetail(ctx context.Context, dersID string) (json.RawMessage, error) {
-	return a.authPost(ctx, pathGradeDetl, map[string]any{"OgrenciDersId": dersID})
+// dersID is the OgrenciDersId from the grade list and is sent as a JSON integer
+// because the upstream ASP.NET model binder rejects a quoted string.
+func (a *API) GradeDetail(ctx context.Context, dersID int64) (json.RawMessage, error) {
+	if dersID <= 0 {
+		return nil, fmt.Errorf("invalid ders id %d: must be positive", dersID)
+	}
+	raw, err := a.authPost(ctx, pathGradeDetl, map[string]any{"OgrenciDersId": dersID})
+	if err != nil {
+		return nil, explainGradeDetailError(dersID, err)
+	}
+	return raw, nil
+}
+
+// explainGradeDetailError turns the two known upstream failures into actionable
+// messages. NotDetayGetir computes relative grading on the fly and is only
+// reachable from the app for courses in the *active* term; for archived terms
+// the backend throws an unhandled NullReferenceException (HTTP 500).
+func explainGradeDetailError(dersID int64, err error) error {
+	var apiErr *client.APIError
+	if !errors.As(err, &apiErr) {
+		return err
+	}
+	switch {
+	case apiErr.Status == 500:
+		return fmt.Errorf(
+			"grade detail unavailable for OgrenciDersId %d: BYS returned HTTP 500. "+
+				"NotDetayGetir is only supported for courses in the active term "+
+				"(take the id from `marmara grades`, not from past semesters): %w",
+			dersID, err)
+	case apiErr.Status == 400 && strings.Contains(apiErr.Body, "Bu Öğrenci İstenilen Dersi Almamaktadır"):
+		return fmt.Errorf("grade detail unavailable for OgrenciDersId %d: the course enrolment does not belong to your active account/term: %w", dersID, err)
+	}
+	return err
 }
 
 // Transcript returns the full academic transcript.

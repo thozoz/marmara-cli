@@ -88,21 +88,22 @@ func gradesCmd() *cobra.Command {
 		Use:   "detail",
 		Short: "Grade component breakdown for one course (--ders-id)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if dersID == "" {
-				return errors.New("--ders-id is required (OgrenciDersId from `marmara grades`)")
+			id, err := api.ParseDersID(dersID)
+			if err != nil {
+				return err
 			}
 			a, _, err := deps()
 			if err != nil {
 				return err
 			}
-			raw, err := a.GradeDetail(cmd.Context(), dersID)
+			raw, err := a.GradeDetail(cmd.Context(), id)
 			if err != nil {
 				return err
 			}
 			return emit(raw)
 		},
 	}
-	detail.Flags().StringVar(&dersID, "ders-id", "", "OgrenciDersId")
+	detail.Flags().StringVar(&dersID, "ders-id", "", "OgrenciDersId (numeric, from `marmara grades`)")
 	cmd.AddCommand(detail)
 	return cmd
 }

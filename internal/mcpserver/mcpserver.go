@@ -5,6 +5,7 @@ package mcpserver
 import (
 	"context"
 	"encoding/json"
+	"strconv"
 
 	"marmara-cli/internal/api"
 	"marmara-cli/internal/auth"
@@ -26,6 +27,26 @@ func Serve() error {
 	s := server.NewMCPServer("marmara", "0.1.0")
 	register(s, a)
 	return server.ServeStdio(s)
+}
+
+// argumentString flattens one tool argument to a string, accepting both the
+// string and number forms an MCP client may send for a numeric id.
+func argumentString(req mcp.CallToolRequest, name string) string {
+	args := req.GetArguments()
+	if args == nil {
+		return ""
+	}
+	switch v := args[name].(type) {
+	case string:
+		return v
+	case float64:
+		return strconv.FormatInt(int64(v), 10)
+	case int:
+		return strconv.Itoa(v)
+	case json.Number:
+		return v.String()
+	}
+	return ""
 }
 
 // simpleFn is an api method taking only a context.
@@ -54,11 +75,11 @@ func register(s *server.MCPServer, a *api.API) {
 
 	// Grade detail (takes an id).
 	gradeDetail := mcp.NewTool("grade_detail",
-		mcp.WithDescription("Grade component breakdown for one course."),
-		mcp.WithString("ders_id", mcp.Description("OgrenciDersId from the grades list."), mcp.Required()),
+		mcp.WithDescription("Grade component breakdown for one course. Only supported for courses in the active term."),
+		mcp.WithString("ders_id", mcp.Description("OgrenciDersId (numeric) from the grades list."), mcp.Required()),
 	)
 	s.AddTool(gradeDetail, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		id, err := req.RequireString("ders_id")
+		id, err := api.ParseDersID(argumentString(req, "ders_id"))
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}

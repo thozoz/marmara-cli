@@ -35,14 +35,28 @@ type Client struct {
 
 // New returns a Client with sensible timeouts.
 func New() *Client {
-	ua := defaultUserAgent
-	if v := os.Getenv("MARMARA_USER_AGENT"); v != "" {
-		ua = v
-	}
 	return &Client{
 		http: &http.Client{Timeout: 30 * time.Second},
-		ua:   ua,
+		ua:   userAgent(),
 	}
+}
+
+// NewWithHTTPClient returns a Client using hc for transport, keeping the same
+// User-Agent resolution as New. It lets callers (notably tests) supply a custom
+// http.Client with a stub RoundTripper.
+func NewWithHTTPClient(hc *http.Client) *Client {
+	if hc == nil {
+		hc = &http.Client{Timeout: 30 * time.Second}
+	}
+	return &Client{http: hc, ua: userAgent()}
+}
+
+// userAgent resolves the User-Agent, honouring MARMARA_USER_AGENT.
+func userAgent() string {
+	if v := os.Getenv("MARMARA_USER_AGENT"); v != "" {
+		return v
+	}
+	return defaultUserAgent
 }
 
 // APIError is returned for any non-2xx response.

@@ -92,9 +92,9 @@ func (s *Server) routes() {
 	}
 
 	s.mux.HandleFunc("/api/grade-detail", func(w http.ResponseWriter, r *http.Request) {
-		id := r.URL.Query().Get("ders_id")
-		if id == "" {
-			writeErr(w, http.StatusBadRequest, "ders_id required")
+		id, err := api.ParseDersID(r.URL.Query().Get("ders_id"))
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		s.serveData(w, r, func(ctx context.Context) (json.RawMessage, error) { return s.api.GradeDetail(ctx, id) })
