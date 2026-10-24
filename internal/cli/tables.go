@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strings"
 	"text/tabwriter"
+
+	"marmara-cli/internal/api"
 )
 
 // tab builds a tab-aligned table. header may be empty. Each row is a slice of
@@ -48,10 +50,10 @@ type transcriptBody struct {
 		OgrenciNo string `json:"OgrenciNo"`
 	} `json:"Ogrenci"`
 	Semesters []struct {
-		Yil           int     `json:"Yil"`
-		GANO          float64 `json:"GANO"`
-		YANO          float64 `json:"YANO"`
-		DersAlinmismi bool    `json:"DersAlinmismi"`
+		Yil            int     `json:"Yil"`
+		GANO           float64 `json:"GANO"`
+		YANO           float64 `json:"YANO"`
+		DersAlinmismi  bool    `json:"DersAlinmismi"`
 		TanscriptDonem *struct {
 			Aciklama string `json:"Aciklama"`
 		} `json:"TanscriptDonem"`
@@ -266,33 +268,55 @@ func renderSchedule(raw json.RawMessage) (string, error) {
 // ---- profile ----
 
 func renderProfile(raw json.RawMessage) (string, error) {
-	var m map[string]any
-	if err := json.Unmarshal(raw, &m); err != nil {
+	p, err := api.ParseProfile(raw)
+	if err != nil {
 		return "", err
 	}
-	// Show a curated set of known fields, in order, when present.
-	fields := []struct{ key, label string }{
-		{"Ad", "Ad"},
-		{"Soyad", "Soyad"},
-		{"Birim", "Birim"},
-		{"AltBirim", "Alt Birim"},
-		{"Email", "E-posta"},
-		{"DanismanEMail", "Danışman"},
-		{"KullaniciTuru", "Tür"},
+	// Curated set of known fields, in order, shown only when present.
+	fields := []struct{ label, value string }{
+		{"Ad Soyad", p.AdSoyad},
+		{"Öğrenci No", p.OgrenciNo},
+		{"Birim", p.Birim},
+		{"Alt Birim", p.AltBirim},
+		{"Birim Kodu", p.BirimKodu},
+		{"E-posta", p.Email},
+		{"Danışman", p.AdvisorName},
+		{"Danışman E-posta", p.AdvisorEmail},
+		{"Tür", p.KullaniciTuru},
+		{"Dönem", termLabel(p.OgretimYili, p.OgretimDonemi)},
+		{"Fotoğraf", p.PhotoURL()},
 	}
 	var rows [][]string
 	for _, f := range fields {
-		if v, ok := m[f.key]; ok {
-			s := fmt.Sprintf("%v", v)
-			if strings.TrimSpace(s) != "" && s != "<nil>" {
-				rows = append(rows, []string{f.label, s})
-			}
+		if strings.TrimSpace(f.value) != "" {
+			rows = append(rows, []string{f.label, f.value})
 		}
 	}
 	if len(rows) == 0 {
 		return "", errors.New("no profile fields")
 	}
 	return tab(nil, rows), nil
+}
+
+// termLabel formats a term as "2026 Güz" style when it can, else "".
+func termLabel(yil, donem int) string {
+	if yil <= 0 || donem <= 0 {
+		return ""
+	}
+	// BYS term codes observed: ...001 Güz, ...002 Bahar (e.g. 100001 / 100002).
+	name := ""
+	switch donem % 10 {
+	case 1:
+		name = "Güz"
+	case 2:
+		name = "Bahar"
+	case 3:
+		name = "Yaz"
+	}
+	if name == "" {
+		return fmt.Sprintf("%d (dönem %d)", yil, donem)
+	}
+	return fmt.Sprintf("%d %s", yil, name)
 }
 
 // ---- generic title list (news, announcements, events, calendar) ----

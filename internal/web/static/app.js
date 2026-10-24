@@ -220,15 +220,37 @@ function renderExams(d) {
 }
 
 function renderProfile(d) {
+  const name = firstStr(d, ["AdSoyad", "AdSoyadi"]);
   const fields = [
-    ["Ad", "Ad"], ["Soyad", "Soyad"], ["Birim", "Birim"], ["AltBirim", "Alt Birim"],
-    ["Email", "E-posta"], ["DanismanEMail", "Danışman"], ["KullaniciTuru", "Tür"],
+    ["Ad Soyad", name || [d.Ad, d.Soyad].filter(Boolean).join(" ")],
+    ["Öğrenci No", firstStr(d, ["OgrenciNo", "OgrenciNumarasi", "Numara"])],
+    ["Birim", firstStr(d, ["Birim", "BirimAdi"])],
+    ["Alt Birim", firstStr(d, ["AltBirim", "AltBirimAdi", "Bolum"])],
+    ["E-posta", firstStr(d, ["Email", "EMail", "Eposta", "EPosta", "Mail"])],
+    ["Danışman", firstStr(d, ["DanismanAdSoyad", "DanismanAdi", "Danisman", "Danismani"])],
+    ["Danışman E-posta", firstStr(d, ["DanismanEMail", "DanismanMail"])],
+    ["Tür", firstStr(d, ["KullaniciTuru", "KullaniciTipi"])],
   ];
   const rows = fields
-    .filter(([k]) => d[k] != null && String(d[k]).trim() !== "")
-    .map(([k, lab]) => `<dt>${esc(lab)}</dt><dd>${esc(d[k])}</dd>`);
+    .filter(([, v]) => v != null && String(v).trim() !== "")
+    .map(([lab, v]) => `<dt>${esc(lab)}</dt><dd>${esc(v)}</dd>`);
   if (!rows.length) return rawJSON(d);
-  return `<dl class="kv">${rows.join("")}</dl>`;
+  const photo = studentPhotoURL(firstStr(d, ["ResimPath", "OgrenciFotograf", "OgrenciFotografi", "Fotograf"]));
+  const avatar = photo
+    ? `<img class="avatar" src="${esc(photo)}" alt="Öğrenci fotoğrafı" loading="lazy">`
+    : "";
+  return `${avatar}<dl class="kv">${rows.join("")}</dl>`;
+}
+
+// studentPhotoURL mirrors the Go helper: the profile carries only a file name,
+// which lives under /upload/ogrfoto/ on BYS.
+function studentPhotoURL(path) {
+  let p = String(path || "").trim();
+  if (!p) return "";
+  if (/^https?:\/\//i.test(p)) return p;
+  p = p.replace(/^\/+/, "");
+  if (p.startsWith("upload/") || p.startsWith("v2/upload/")) return `https://bys.marmara.edu.tr/${p}`;
+  return `https://bys.marmara.edu.tr/upload/ogrfoto/${encodeURIComponent(p)}`;
 }
 
 function renderCard(d) {

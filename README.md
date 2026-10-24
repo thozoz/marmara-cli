@@ -135,6 +135,24 @@ user and never take an arbitrary student ID.
   so the real field names aren't confirmed yet. Once exam schedules are active,
   add a typed `--table` renderer based on the actual `OgrenciDersSinavListesi` shape.
 
+### Known limitations
+
+- **`grades detail` only works for the active term.** `NotDetayGetir` computes the
+  class average, min/max and rank on the fly, and is only reachable from the app
+  for courses in the current term. For archived semesters the backend throws an
+  unhandled exception (HTTP 500), so pass an `OgrenciDersId` from `marmara grades`
+  — ids taken from `marmara transcript` past semesters will fail. The CLI/MCP
+  report this as an explicit error rather than a bare 500.
+- **`cafeteria` has two sources.** SKS (`sks.marmara.edu.tr/yemek/json`) is tried
+  first; if it times out, fails DNS or returns an unusable body, the BYS mobile
+  endpoint (`/v2/Public/Mobil/Yemekhane`) is used instead. Both are normalised to
+  the same flat day array, so `--table`, the dashboard and MCP see one shape.
+- **`profile` advisor name is best-effort.** `KullaniciBilgileri` exposes
+  `DanismanEMail` (confirmed in the mobile build) but no confirmed display-name
+  key; `--table` shows the name only when the backend happens to include one.
+  The photo URL is derived from `ResimPath` as
+  `https://bys.marmara.edu.tr/upload/ogrfoto/<file>`.
+
 ### Removed — broken or gone upstream
 
 These were dropped because the university endpoints are unreliable or changed;

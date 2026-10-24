@@ -101,3 +101,39 @@ test("summary clock updates stop on navigation and login screen", async () => {
   c.showLogin();
   assert.equal(timers.size, 0);
 });
+
+test("profile renders photo URL, advisor and aliases; escapes text", () => {
+  const { context: c } = app();
+  const html = c.renderProfile({
+    Ad: "Ayşe", Soyad: "Yılmaz", OgrenciNo: "111111111",
+    Bolum: "Bilgisayar Mühendisliği",
+    Mail: "ayse@marmara.edu.tr",
+    DanismanEMail: "hoca@marmara.edu.tr",
+    ResimPath: "111111111.jpg",
+  });
+  assert.match(html, /class="avatar"/);
+  assert.match(html, /https:\/\/bys\.marmara\.edu\.tr\/upload\/ogrfoto\/111111111\.jpg/);
+  assert.match(html, /Ayşe Yılmaz/);
+  assert.match(html, /hoca@marmara\.edu\.tr/);
+  assert.match(html, /Bilgisayar Mühendisliği/);
+  const injected = c.renderProfile({ AdSoyad: '<img src=x onerror="alert(1)">' });
+  assert.doesNotMatch(injected, /<img src=x/);
+});
+
+test("studentPhotoURL mirrors the Go helper", () => {
+  const { context: c } = app();
+  assert.equal(c.studentPhotoURL(""), "");
+  assert.equal(c.studentPhotoURL("https://cdn.example/f.jpg"), "https://cdn.example/f.jpg");
+  assert.equal(c.studentPhotoURL("f.jpg"), "https://bys.marmara.edu.tr/upload/ogrfoto/f.jpg");
+  assert.equal(c.studentPhotoURL("upload/ogrfoto/x.jpg"), "https://bys.marmara.edu.tr/upload/ogrfoto/x.jpg");
+  assert.equal(c.studentPhotoURL("/v2/upload/ogrfoto/y.jpg"), "https://bys.marmara.edu.tr/v2/upload/ogrfoto/y.jpg");
+});
+
+test("cafeteria renders the normalised array from either source", () => {
+  const { context: c } = app();
+  const day = { date: "2026-10-19", meals: { "Mercimek Çorbası": 110 }, meals_vegan: { Makarna: 270 } };
+  const html = c.renderCafeteria([day]);
+  assert.match(html, /2026-10-19/);
+  assert.match(html, /Vegan/);
+  assert.match(c.renderCafeteria([]), /Menü yok/);
+});
