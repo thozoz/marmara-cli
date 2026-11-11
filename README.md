@@ -131,9 +131,11 @@ user and never take an arbitrary student ID.
 
 ## Roadmap / TODO
 
-- **Table output for `exams`.** Exam endpoints return empty arrays between terms,
-  so the real field names aren't confirmed yet. Once exam schedules are active,
-  add a typed `--table` renderer based on the actual `OgrenciDersSinavListesi` shape.
+- **Table output for `exams`.** The `OgrenciDersSinavListesi` shape is now
+  confirmed live (`dersKodu`, `dersAdi`, `sinavTuru`, `sinavTarihi`, `sinavSaati`,
+  `derslikKodu`, `sinavCondition`); a typed `--table` renderer is still to do.
+- **All-term exams in the dashboard and MCP.** `marmara exams` walks every term,
+  but the dashboard and the MCP `exams` tool still show the active term only.
 
 ### Known limitations
 
