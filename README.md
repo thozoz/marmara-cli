@@ -26,7 +26,7 @@ Public data needs no login:
 ```sh
 marmara cafeteria          # daily cafeteria menu
 marmara clubs              # student clubs
-marmara club-events        # upcoming club events
+marmara club-events        # upcoming club events (upstream currently 404)
 marmara calendar           # academic calendar / exam periods
 marmara campus-maps        # campus GPS markers (--types for categories)
 marmara news               # university news
@@ -47,7 +47,7 @@ MARMARA_USERNAME=... MARMARA_PASSWORD=... marmara login
 
 marmara profile            # your profile
 marmara card               # campus card status + numbers
-marmara grades             # grade list
+marmara grades             # active-term grade list
 marmara grades detail --ders-id <OgrenciDersId>
 marmara transcript
 marmara schedule           # weekly timetable (--table supported)
@@ -84,7 +84,9 @@ cached refresh token, so you rarely need to log in again.
 
 A local, self-hosted browser UI over the same API layer — a clean dashboard for
 your transcript, grades, schedule, exams, cafeteria menu, calendar, news and
-more, plus a summary landing screen (GANO, today's menu, upcoming exams).
+more, plus a summary landing screen: GANO, today's lessons with upcoming exams
+right beside them (stacked on narrow screens) and today's menu. The exams page
+lists every term with Tümü / Yaklaşan / Geçmiş filter chips.
 
 <p align="center">
   <img src="docs/dashboard.png" alt="Marmara Panel Dashboard" width="850">
@@ -138,7 +140,10 @@ user and never take an arbitrary student ID.
   exception (HTTP 500) on the BYS side. It has been seen for graded past-term
   courses and for ungraded active-term courses alike, with the id taken from
   `marmara grades`, so it is a backend issue rather than a wrong id. The CLI/MCP
-  report it as an explicit error rather than a bare 500.
+  report it as an explicit error rather than a bare 500. Because of this, class
+  average, min/max and rank are not available yet (#13).
+- **`club-events` is down upstream.** ESKS now returns 404 for
+  `kulup/kulupeglist.json`; the command is kept until the new path is known.
 - **`cafeteria` has two sources.** SKS (`sks.marmara.edu.tr/yemek/json`) is tried
   first; if it times out, fails DNS or returns an unusable body, the BYS mobile
   endpoint (`/v2/Public/Mobil/Yemekhane`) is used instead. Both are normalised to
