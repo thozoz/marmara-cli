@@ -28,6 +28,8 @@ func TestArgumentString(t *testing.T) {
 		{"missing", map[string]any{}, ""},
 		{"nil args", nil, ""},
 		{"unsupported type", map[string]any{"ders_id": true}, ""},
+		{"fractional number", map[string]any{"ders_id": 123456.7}, ""},
+		{"huge number", map[string]any{"ders_id": 1e300}, ""},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

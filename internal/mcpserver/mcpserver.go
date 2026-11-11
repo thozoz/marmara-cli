@@ -5,6 +5,7 @@ package mcpserver
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"strconv"
 
 	"marmara-cli/internal/api"
@@ -40,6 +41,11 @@ func argumentString(req mcp.CallToolRequest, name string) string {
 	case string:
 		return v
 	case float64:
+		// Reject fractions and values float64 cannot hold exactly, so a
+		// malformed id errors instead of silently becoming another course.
+		if v != math.Trunc(v) || v < 1 || v > 1<<53 {
+			return ""
+		}
 		return strconv.FormatInt(int64(v), 10)
 	case int:
 		return strconv.Itoa(v)
