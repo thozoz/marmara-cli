@@ -178,3 +178,31 @@ func TestScheduleTerm_Validation(t *testing.T) {
 		})
 	}
 }
+
+// Exams and grades return an empty list unless the active term is sent.
+func TestTermScopedEndpointsSendActiveTerm(t *testing.T) {
+	for name, call := range map[string]func(*API) (json.RawMessage, error){
+		"SinavListesiGetir": func(a *API) (json.RawMessage, error) { return a.Exams(context.Background()) },
+		"NotListesiGetir":   func(a *API) (json.RawMessage, error) { return a.Grades(context.Background()) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			var sent map[string]any
+			a := stubAPI(t, func(r *http.Request) (*http.Response, error) {
+				if strings.HasSuffix(r.URL.Path, "/KullaniciBilgileri") {
+					return jsonResponse(200, `{"OgretimYili":2026,"OgretimDonemi":100001}`), nil
+				}
+				if !strings.HasSuffix(r.URL.Path, "/"+name) {
+					t.Errorf("unexpected path %q", r.URL.Path)
+				}
+				_ = json.NewDecoder(r.Body).Decode(&sent)
+				return jsonResponse(200, `{}`), nil
+			})
+			if _, err := call(a); err != nil {
+				t.Fatalf("%s: %v", name, err)
+			}
+			if sent["OgretimYili"] != float64(2026) || sent["OgretimDonemi"] != float64(100001) {
+				t.Fatalf("body = %v, want active term", sent)
+			}
+		})
+	}
+}

@@ -23,9 +23,10 @@ const (
 	pathExams      = client.HostBYS + "/v2/Public/Mobil/Ogrenci/SinavListesiGetir"
 )
 
-// Grades returns the student's grade list.
+// Grades returns the student's grade list for the active term.
+// Like the schedule, NotListesiGetir returns an empty list without a term.
 func (a *API) Grades(ctx context.Context) (json.RawMessage, error) {
-	return a.authPost(ctx, pathGrades, map[string]any{})
+	return a.activeTermPost(ctx, pathGrades)
 }
 
 // ParseDersID converts user-supplied input (CLI flag, web query, MCP argument)
@@ -93,9 +94,15 @@ func (a *API) Transcript(ctx context.Context) (json.RawMessage, error) {
 // it returns an empty list. This retrieves the current term from the user's
 // Profile before requesting the schedule.
 func (a *API) Schedule(ctx context.Context) (json.RawMessage, error) {
+	return a.activeTermPost(ctx, pathSchedule)
+}
+
+// activeTermPost posts the user's active term (from Profile) to a term-scoped
+// endpoint. Schedule, grades and exams all return an empty list without it.
+func (a *API) activeTermPost(ctx context.Context, url string) (json.RawMessage, error) {
 	profRaw, err := a.Profile(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("fetch profile for schedule: %w", err)
+		return nil, fmt.Errorf("fetch profile for active term: %w", err)
 	}
 
 	var prof struct {
@@ -108,8 +115,7 @@ func (a *API) Schedule(ctx context.Context) (json.RawMessage, error) {
 	if prof.OgretimYili <= 0 || prof.OgretimDonemi <= 0 {
 		return nil, fmt.Errorf("no active term found in profile (year %d, term %d)", prof.OgretimYili, prof.OgretimDonemi)
 	}
-
-	return a.ScheduleTerm(ctx, prof.OgretimYili, prof.OgretimDonemi)
+	return a.authPost(ctx, url, map[string]any{"OgretimYili": prof.OgretimYili, "OgretimDonemi": prof.OgretimDonemi})
 }
 
 // ScheduleTerm returns the weekly lecture timetable for a specific academic year and term.
@@ -124,7 +130,7 @@ func (a *API) ScheduleTerm(ctx context.Context, yil, donem int) (json.RawMessage
 	return a.authPost(ctx, pathSchedule, body)
 }
 
-// Exams returns midterm/final/resit exam schedules.
+// Exams returns midterm/final/resit exam schedules for the active term.
 func (a *API) Exams(ctx context.Context) (json.RawMessage, error) {
-	return a.authPost(ctx, pathExams, map[string]any{})
+	return a.activeTermPost(ctx, pathExams)
 }
