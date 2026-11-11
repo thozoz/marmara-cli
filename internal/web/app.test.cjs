@@ -155,3 +155,38 @@ test("exams render as a sorted, deduplicated, escaped table", () => {
   assert.doesNotMatch(desc, /<b>x<\/b>/);
   assert.match(c.renderExams({ OgrenciDersSinavListesi: [] }), /Sınav kaydı yok/);
 });
+
+test("exams page chips filter past/future with counts", () => {
+  const { context: c, elements } = app();
+  const d = { OgrenciDersSinavListesi: [
+    { dersKodu: "OLD1", sinavTarihi: "10.01.2026, Saturday", sinavCondition: "passed" },
+    { dersKodu: "NEW1", sinavTarihi: "20.11.2026, Friday", sinavCondition: "future" },
+    { dersKodu: "NEW2", sinavTarihi: "16.11.2026, Monday", sinavCondition: "future" },
+  ] };
+  const page = c.renderExamsPage(d);
+  assert.match(page, /Tümü<span class="n">3/);
+  assert.match(page, /Yaklaşan<span class="n">2/);
+  assert.match(page, /Geçmiş<span class="n">1/);
+  c.filterExams("future");
+  const fut = elements.get("#exams-list").innerHTML;
+  assert.doesNotMatch(fut, /OLD1/);
+  assert.ok(fut.indexOf("NEW2") < fut.indexOf("NEW1"), "upcoming soonest first");
+  c.filterExams("past");
+  assert.match(elements.get("#exams-list").innerHTML, /OLD1/);
+  assert.doesNotMatch(elements.get("#exams-list").innerHTML, /NEW/);
+});
+
+test("summary upcoming exams: soonest first with days-left hint", () => {
+  const { context: c } = app();
+  const d = { OgrenciDersSinavListesi: [
+    { dersKodu: "B", dersAdi: "Later", sinavTarihi: "20.11.2026, Friday", sinavSaati: "15:00", sinavTuru: "Ara Sınav 1", derslikKodu: "Z05,Z05" },
+    { dersKodu: "A", dersAdi: "Tomorrow", sinavTarihi: "12.11.2026, Thursday", sinavSaati: "10:30,10:30", sinavTuru: "Ara Sınav 1", derslikKodu: "Z07" },
+  ] };
+  const html = c.renderUpcomingExams(d, "2026-11-11");
+  assert.ok(html.indexOf("Tomorrow") < html.indexOf("Later"));
+  assert.match(html, /yarın/);
+  assert.match(html, /9 gün kaldı/);
+  assert.match(html, /2 sınav/);
+  assert.doesNotMatch(html, /Z05, Z05|10:30, 10:30/);
+  assert.match(c.renderUpcomingExams({ OgrenciDersSinavListesi: [] }, "2026-11-11"), /Yaklaşan sınav yok/);
+});
