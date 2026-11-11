@@ -137,12 +137,11 @@ user and never take an arbitrary student ID.
 
 ### Known limitations
 
-- **`grades detail` only works for the active term.** `NotDetayGetir` computes the
-  class average, min/max and rank on the fly, and is only reachable from the app
-  for courses in the current term. For archived semesters the backend throws an
-  unhandled exception (HTTP 500), so pass an `OgrenciDersId` from `marmara grades`
-  — ids taken from `marmara transcript` past semesters will fail. The CLI/MCP
-  report this as an explicit error rather than a bare 500.
+- **`grades detail` may fail upstream.** `NotDetayGetir` throws an unhandled
+  exception (HTTP 500) on the BYS side. It has been seen for graded past-term
+  courses and for ungraded active-term courses alike, with the id taken from
+  `marmara grades`, so it is a backend issue rather than a wrong id. The CLI/MCP
+  report it as an explicit error rather than a bare 500.
 - **`cafeteria` has two sources.** SKS (`sks.marmara.edu.tr/yemek/json`) is tried
   first; if it times out, fails DNS or returns an unusable body, the BYS mobile
   endpoint (`/v2/Public/Mobil/Yemekhane`) is used instead. Both are normalised to

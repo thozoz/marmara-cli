@@ -81,7 +81,7 @@ func register(s *server.MCPServer, a *api.API) {
 
 	// Grade detail (takes an id).
 	gradeDetail := mcp.NewTool("grade_detail",
-		mcp.WithDescription("Grade component breakdown for one course. Only supported for courses in the active term."),
+		mcp.WithDescription("Grade component breakdown for one course. BYS may return HTTP 500 for this endpoint."),
 		mcp.WithString("ders_id", mcp.Description("OgrenciDersId (numeric) from the grades list."), mcp.Required()),
 	)
 	s.AddTool(gradeDetail, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {

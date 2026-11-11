@@ -63,9 +63,9 @@ func (a *API) GradeDetail(ctx context.Context, dersID int64) (json.RawMessage, e
 }
 
 // explainGradeDetailError turns the two known upstream failures into actionable
-// messages. NotDetayGetir computes relative grading on the fly and is only
-// reachable from the app for courses in the *active* term; for archived terms
-// the backend throws an unhandled NullReferenceException (HTTP 500).
+// messages. NotDetayGetir throws an unhandled exception (HTTP 500) upstream; it
+// was observed live for both graded past-term and ungraded active-term ids, so
+// the cause is on the BYS side and not something the caller can pick around.
 func explainGradeDetailError(dersID int64, err error) error {
 	var apiErr *client.APIError
 	if !errors.As(err, &apiErr) {
@@ -75,8 +75,8 @@ func explainGradeDetailError(dersID int64, err error) error {
 	case apiErr.Status == 500:
 		return fmt.Errorf(
 			"grade detail unavailable for OgrenciDersId %d: BYS returned HTTP 500. "+
-				"NotDetayGetir is only supported for courses in the active term "+
-				"(take the id from `marmara grades`, not from past semesters): %w",
+				"this is a backend error in NotDetayGetir, seen for both ungraded "+
+				"active-term and archived courses; retry later: %w",
 			dersID, err)
 	case apiErr.Status == 400 && strings.Contains(apiErr.Body, "Bu Öğrenci İstenilen Dersi Almamaktadır"):
 		return fmt.Errorf("grade detail unavailable for OgrenciDersId %d: the course enrolment does not belong to your active account/term: %w", dersID, err)

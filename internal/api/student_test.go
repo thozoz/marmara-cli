@@ -130,7 +130,7 @@ func TestGradeDetail_ExplainsHTTP500(t *testing.T) {
 		t.Fatal("expected error")
 	}
 	msg := err.Error()
-	for _, want := range []string{"999", "active term", "HTTP 500"} {
+	for _, want := range []string{"999", "backend error", "HTTP 500"} {
 		if !strings.Contains(msg, want) {
 			t.Errorf("error %q does not mention %q", msg, want)
 		}
