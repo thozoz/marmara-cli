@@ -108,7 +108,7 @@ func NewRoot() *cobra.Command {
 		gradesCmd(),
 		dataCmd("transcript", "Full academic transcript", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Transcript(ctx) }, renderTranscript),
 		dataCmd("schedule", "Weekly lecture timetable", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Schedule(ctx) }, renderSchedule),
-		dataCmd("exams", "Exam schedule (midterm/final/resit)", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Exams(ctx) }, nil),
+		examsCmd(),
 		// Public BYS
 		dataCmd("features", "App feature toggles", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Features(ctx) }, nil),
 		dataCmd("risk-report", "Health/risk report", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.RiskReport(ctx) }, nil),

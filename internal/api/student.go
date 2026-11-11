@@ -134,3 +134,68 @@ func (a *API) ScheduleTerm(ctx context.Context, yil, donem int) (json.RawMessage
 func (a *API) Exams(ctx context.Context) (json.RawMessage, error) {
 	return a.activeTermPost(ctx, pathExams)
 }
+
+// Exam filters for AllExams. BYS marks each exam with sinavCondition
+// "passed" once it is over; anything else (e.g. "future") is still ahead.
+const (
+	ExamsAll    = ""
+	ExamsPast   = "past"
+	ExamsFuture = "future"
+)
+
+// AllExams returns the exams of every term the student enrolled in, taken from
+// the transcript, in the same {"OgrenciDersSinavListesi": [...]} shape as
+// Exams. Each exam is tagged with its OgretimYili/OgretimDonemi. filter is one
+// of ExamsAll, ExamsPast or ExamsFuture.
+func (a *API) AllExams(ctx context.Context, filter string) (json.RawMessage, error) {
+	if filter != ExamsAll && filter != ExamsPast && filter != ExamsFuture {
+		return nil, fmt.Errorf("invalid exam filter %q (want past or future)", filter)
+	}
+	trRaw, err := a.Transcript(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("fetch transcript for terms: %w", err)
+	}
+	var tr struct {
+		Transcript struct {
+			Transcript struct {
+				Semesters []struct {
+					Yil            int  `json:"Yil"`
+					DersAlinmismi  bool `json:"DersAlinmismi"`
+					TanscriptDonem *struct {
+						Kodid int `json:"Kodid"`
+					} `json:"TanscriptDonem"`
+				} `json:"Semesters"`
+			} `json:"Transcript"`
+		} `json:"Transcript"`
+	}
+	if err := json.Unmarshal(trRaw, &tr); err != nil {
+		return nil, fmt.Errorf("decode transcript terms: %w", err)
+	}
+
+	all := []map[string]any{}
+	for _, s := range tr.Transcript.Transcript.Semesters {
+		if !s.DersAlinmismi || s.TanscriptDonem == nil || s.Yil <= 0 || s.TanscriptDonem.Kodid <= 0 {
+			continue
+		}
+		donem := s.TanscriptDonem.Kodid
+		raw, err := a.authPost(ctx, pathExams, map[string]any{"OgretimYili": s.Yil, "OgretimDonemi": donem})
+		if err != nil {
+			return nil, fmt.Errorf("exams for %d/%d: %w", s.Yil, donem, err)
+		}
+		var body struct {
+			List []map[string]any `json:"OgrenciDersSinavListesi"`
+		}
+		if err := json.Unmarshal(raw, &body); err != nil {
+			return nil, fmt.Errorf("decode exams for %d/%d: %w", s.Yil, donem, err)
+		}
+		for _, e := range body.List {
+			past := e["sinavCondition"] == "passed"
+			if (filter == ExamsPast && !past) || (filter == ExamsFuture && past) {
+				continue
+			}
+			e["OgretimYili"], e["OgretimDonemi"] = s.Yil, donem
+			all = append(all, e)
+		}
+	}
+	return json.Marshal(map[string]any{"OgrenciDersSinavListesi": all})
+}

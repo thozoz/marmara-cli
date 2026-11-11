@@ -108,6 +108,31 @@ func gradesCmd() *cobra.Command {
 	return cmd
 }
 
+// examsCmd prints exams from every enrolled term; `past` or `future` filters them.
+func examsCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:       "exams [past|future]",
+		Short:     "Exam schedule (midterm/final/resit) across all terms",
+		ValidArgs: []string{api.ExamsPast, api.ExamsFuture},
+		Args:      cobra.MatchAll(cobra.MaximumNArgs(1), cobra.OnlyValidArgs),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			filter := api.ExamsAll
+			if len(args) == 1 {
+				filter = args[0]
+			}
+			a, _, err := deps()
+			if err != nil {
+				return err
+			}
+			raw, err := a.AllExams(cmd.Context(), filter)
+			if err != nil {
+				return err
+			}
+			return output(raw, nil)
+		},
+	}
+}
+
 func campusMapsCmd() *cobra.Command {
 	var types bool
 	cmd := &cobra.Command{

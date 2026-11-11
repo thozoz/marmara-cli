@@ -51,7 +51,7 @@ marmara grades             # grade list
 marmara grades detail --ders-id <OgrenciDersId>
 marmara transcript
 marmara schedule           # weekly timetable (--table supported)
-marmara exams              # exam schedule
+marmara exams              # exams from every term (add past / future to filter)
 
 marmara logout             # revoke token + clear cache
 ```

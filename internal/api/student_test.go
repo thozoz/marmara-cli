@@ -206,3 +206,56 @@ func TestTermScopedEndpointsSendActiveTerm(t *testing.T) {
 		})
 	}
 }
+
+// AllExams walks every transcript term and applies the past/future filter.
+func TestAllExams_WalksTermsAndFilters(t *testing.T) {
+	transcript := `{"Transcript":{"Transcript":{"Semesters":[
+		{"Yil":2025,"DersAlinmismi":true,"TanscriptDonem":{"Kodid":100001}},
+		{"Yil":2025,"DersAlinmismi":false,"TanscriptDonem":{"Kodid":100003}},
+		{"Yil":2026,"DersAlinmismi":true,"TanscriptDonem":{"Kodid":100001}}]}}}`
+	exams := map[float64]string{
+		2025: `{"OgrenciDersSinavListesi":[{"dersKodu":"OLD","sinavCondition":"passed"}]}`,
+		2026: `{"OgrenciDersSinavListesi":[{"dersKodu":"NEW","sinavCondition":"future"}]}`,
+	}
+	a := stubAPI(t, func(r *http.Request) (*http.Response, error) {
+		if strings.HasSuffix(r.URL.Path, "/TranscriptGetir") {
+			return jsonResponse(200, transcript), nil
+		}
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if body["OgretimDonemi"] != float64(100001) {
+			t.Errorf("unexpected term %v (skipped terms must not be queried)", body)
+		}
+		return jsonResponse(200, exams[body["OgretimYili"].(float64)]), nil
+	})
+
+	codes := func(filter string) string {
+		raw, err := a.AllExams(context.Background(), filter)
+		if err != nil {
+			t.Fatalf("AllExams(%q): %v", filter, err)
+		}
+		var out struct {
+			List []map[string]any `json:"OgrenciDersSinavListesi"`
+		}
+		if err := json.Unmarshal(raw, &out); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		var got []string
+		for _, e := range out.List {
+			got = append(got, e["dersKodu"].(string))
+		}
+		return strings.Join(got, ",")
+	}
+	if got := codes(ExamsAll); got != "OLD,NEW" {
+		t.Errorf("all = %q", got)
+	}
+	if got := codes(ExamsPast); got != "OLD" {
+		t.Errorf("past = %q", got)
+	}
+	if got := codes(ExamsFuture); got != "NEW" {
+		t.Errorf("future = %q", got)
+	}
+	if _, err := a.AllExams(context.Background(), "bogus"); err == nil {
+		t.Error("invalid filter should error")
+	}
+}
