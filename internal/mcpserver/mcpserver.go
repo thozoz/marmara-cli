@@ -77,7 +77,19 @@ func register(s *server.MCPServer, a *api.API) {
 	addSimple(s, a, "grades", "Your grade list.", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Grades(ctx) })
 	addSimple(s, a, "transcript", "Full academic transcript.", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Transcript(ctx) })
 	addSimple(s, a, "schedule", "Weekly lecture timetable.", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Schedule(ctx) })
-	addSimple(s, a, "exams", "Exam schedule (midterm/final/resit).", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Exams(ctx) })
+
+	// Exams across every enrolled term, optionally filtered.
+	exams := mcp.NewTool("exams",
+		mcp.WithDescription("Exams (midterm/final/resit) from every enrolled term, each tagged with OgretimYili/OgretimDonemi. sinavCondition is \"passed\" once an exam is over."),
+		mcp.WithString("filter", mcp.Description("Optional: past (already held) or future (still ahead)."), mcp.Enum(api.ExamsPast, api.ExamsFuture)),
+	)
+	s.AddTool(exams, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		raw, err := a.AllExams(ctx, argumentString(req, "filter"))
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		return mcp.NewToolResultText(string(raw)), nil
+	})
 
 	// Grade detail (takes an id).
 	gradeDetail := mcp.NewTool("grade_detail",

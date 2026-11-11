@@ -110,6 +110,62 @@ func renderTranscript(raw json.RawMessage) (string, error) {
 
 // ---- grades (current term) — best effort; shape mirrors transcript courses ----
 
+// ---- exams ----
+
+func renderExams(raw json.RawMessage) (string, error) {
+	var env struct {
+		List []struct {
+			DersKodu       string `json:"dersKodu"`
+			DersAdi        string `json:"dersAdi"`
+			SinavTuru      string `json:"sinavTuru"`
+			SinavTarihi    string `json:"sinavTarihi"`
+			SinavSaati     string `json:"sinavSaati"`
+			DerslikKodu    string `json:"derslikKodu"`
+			SinavCondition string `json:"sinavCondition"`
+		} `json:"OgrenciDersSinavListesi"`
+	}
+	if err := json.Unmarshal(raw, &env); err != nil {
+		return "", err
+	}
+	if len(env.List) == 0 {
+		return "", errors.New("no exams")
+	}
+	rows := make([][]string, 0, len(env.List))
+	for _, e := range env.List {
+		durum := "yaklaşıyor"
+		if e.SinavCondition == "passed" {
+			durum = "yapıldı"
+		}
+		rows = append(rows, []string{examDate(e.SinavTarihi), uniqCSV(e.SinavSaati), e.DersKodu, e.DersAdi, e.SinavTuru, uniqCSV(e.DerslikKodu), durum})
+	}
+	// Chronological, so the next exams end up right above the prompt.
+	sort.SliceStable(rows, func(i, j int) bool {
+		return rows[i][0]+" "+fmt.Sprintf("%5s", rows[i][1]) < rows[j][0]+" "+fmt.Sprintf("%5s", rows[j][1])
+	})
+	return tab([]string{"Tarih", "Saat", "Kod", "Ders", "Tür", "Derslik", "Durum"}, rows), nil
+}
+
+// examDate turns BYS's "16.11.2026, Monday" into a sortable "2026-11-16".
+func examDate(s string) string {
+	if len(s) >= 10 && s[2] == '.' && s[5] == '.' {
+		return s[6:10] + "-" + s[3:5] + "-" + s[0:2]
+	}
+	return s
+}
+
+// uniqCSV collapses BYS's per-room repeats ("10:30,10:30") to unique values.
+func uniqCSV(s string) string {
+	var out []string
+	seen := map[string]bool{}
+	for _, p := range strings.Split(s, ",") {
+		if p = strings.TrimSpace(p); p != "" && !seen[p] {
+			seen[p] = true
+			out = append(out, p)
+		}
+	}
+	return strings.Join(out, ", ")
+}
+
 func renderGrades(raw json.RawMessage) (string, error) {
 	var env struct {
 		OgrenciDersNotListesi []struct {
@@ -117,6 +173,7 @@ func renderGrades(raw json.RawMessage) (string, error) {
 			DersAdi    string  `json:"DersAdi"`
 			HBN        string  `json:"HBN"`
 			HarfNotu   string  `json:"HarfNotu"`
+			BN         string  `json:"BN"` // grade as sent by BYS: "93", or "-" before grading
 			BasariNotu float64 `json:"BasariNotu"`
 			Ortalama   float64 `json:"Ortalama"`
 		} `json:"OgrenciDersNotListesi"`
@@ -133,7 +190,11 @@ func renderGrades(raw json.RawMessage) (string, error) {
 		if harf == "" {
 			harf = g.HarfNotu
 		}
-		rows = append(rows, []string{g.DersKodu, g.DersAdi, harf, fmt.Sprintf("%.0f", g.BasariNotu)})
+		not := strings.TrimSpace(g.BN)
+		if not == "" {
+			not = fmt.Sprintf("%.0f", g.BasariNotu)
+		}
+		rows = append(rows, []string{g.DersKodu, g.DersAdi, strings.TrimSpace(harf), not})
 	}
 	return tab([]string{"Kod", "Ders", "Harf", "Not"}, rows), nil
 }

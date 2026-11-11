@@ -128,7 +128,7 @@ func examsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return output(raw, nil)
+			return output(raw, renderExams)
 		},
 	}
 }

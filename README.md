@@ -60,7 +60,7 @@ Output formatting:
 
 - default: compact JSON on one line (easy for scripts/agents to parse)
 - `--pretty`: indented JSON
-- `--table`: human-readable table for supported commands (`transcript`, `grades`,
+- `--table`: human-readable table for supported commands (`transcript`, `grades`, `exams`,
   `schedule`, `cafeteria`, `card`, `profile`, `news`, `announcements`, `events`, `calendar`);
   any command without a table view falls back to JSON automatically
 
@@ -116,7 +116,8 @@ claude mcp add marmara -- /full/path/to/marmara mcp
 ```
 
 Every read command above is exposed as a tool (`profile`, `grades`, `schedule`,
-`exams`, `cafeteria`, `calendar`, …). Log in once with `marmara login` first; the
+`exams`, `cafeteria`, `calendar`, …); `exams` covers every enrolled term and takes an
+optional `filter` (`past` / `future`). Log in once with `marmara login` first; the
 MCP server reuses the same cached token.
 
 ## Scope
@@ -130,12 +131,6 @@ endpoint, and any cross-student lookup — calls always act as the authenticated
 user and never take an arbitrary student ID.
 
 ## Roadmap / TODO
-
-- **Table output for `exams`.** The `OgrenciDersSinavListesi` shape is now
-  confirmed live (`dersKodu`, `dersAdi`, `sinavTuru`, `sinavTarihi`, `sinavSaati`,
-  `derslikKodu`, `sinavCondition`); a typed `--table` renderer is still to do.
-- **All-term exams in the dashboard and MCP.** `marmara exams` walks every term,
-  but the dashboard and the MCP `exams` tool still show the active term only.
 
 ### Known limitations
 

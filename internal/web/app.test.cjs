@@ -137,3 +137,21 @@ test("cafeteria renders the normalised array from either source", () => {
   assert.match(html, /Vegan/);
   assert.match(c.renderCafeteria([]), /Menü yok/);
 });
+
+test("exams render as a sorted, deduplicated, escaped table", () => {
+  const { context: c } = app();
+  const d = { OgrenciDersSinavListesi: [
+    { dersKodu: "BLM1003.2", dersAdi: "Algoritma", sinavTarihi: "10.01.2026, Saturday", sinavSaati: "9:00", derslikKodu: "Z05", sinavCondition: "passed" },
+    { dersKodu: "MAT2085.1", dersAdi: "<b>x</b>", sinavTarihi: "16.11.2026, Monday", sinavSaati: "10:30,10:30", derslikKodu: "Z05,Z06", sinavCondition: "future" },
+  ] };
+  const desc = c.renderExams(d);
+  assert.ok(desc.indexOf("MAT2085.1") < desc.indexOf("BLM1003.2"), "newest first by default");
+  const asc = c.renderExams(d, true);
+  assert.ok(asc.indexOf("BLM1003.2") < asc.indexOf("MAT2085.1"), "soonest first when ascending");
+  assert.match(desc, /2026-11-16/);
+  assert.match(desc, /Z05, Z06/);
+  assert.doesNotMatch(desc, /10:30, 10:30/);
+  assert.match(desc, /yapıldı/);
+  assert.doesNotMatch(desc, /<b>x<\/b>/);
+  assert.match(c.renderExams({ OgrenciDersSinavListesi: [] }), /Sınav kaydı yok/);
+});

@@ -137,3 +137,39 @@ func TestRenderCafeteria(t *testing.T) {
 		t.Error("expected error for an empty menu")
 	}
 }
+
+func TestRenderExams_SortsAndDedupes(t *testing.T) {
+	raw := json.RawMessage(`{"OgrenciDersSinavListesi":[
+		{"dersKodu":"MAT2085.1","dersAdi":"Diferansiyel","sinavTuru":"Ara Sınav 1","sinavTarihi":"16.11.2026, Monday","sinavSaati":"10:30,10:30","derslikKodu":"Z05,Z06","sinavCondition":"future"},
+		{"dersKodu":"BLM1003.2","dersAdi":"Algoritma","sinavTuru":"Final","sinavTarihi":"10.01.2026, Saturday","sinavSaati":"9:00","derslikKodu":"Z05","sinavCondition":"passed"}]}`)
+	out, err := renderExams(raw)
+	if err != nil {
+		t.Fatalf("renderExams: %v", err)
+	}
+	if strings.Index(out, "BLM1003.2") > strings.Index(out, "MAT2085.1") {
+		t.Errorf("exams not chronological:\n%s", out)
+	}
+	for _, want := range []string{"2026-11-16", "10:30  ", "Z05, Z06", "yapıldı", "yaklaşıyor"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "10:30, 10:30") {
+		t.Errorf("time not deduplicated:\n%s", out)
+	}
+	if _, err := renderExams(json.RawMessage(`{"OgrenciDersSinavListesi":[]}`)); err == nil {
+		t.Error("empty list should fall back to JSON")
+	}
+}
+
+func TestRenderGrades_UsesBN(t *testing.T) {
+	out, err := renderGrades(json.RawMessage(`{"OgrenciDersNotListesi":[
+		{"DersKodu":"BLM1001.1","DersAdi":"Giriş","HBN":"AA","BN":"93"},
+		{"DersKodu":"BLM2001.1","DersAdi":"Prog II","HBN":" - ","BN":"-"}]}`))
+	if err != nil {
+		t.Fatalf("renderGrades: %v", err)
+	}
+	if !strings.Contains(out, "93") || strings.Contains(out, " 0\n") || strings.HasSuffix(out, " 0") {
+		t.Errorf("grades should show BN, not 0:\n%s", out)
+	}
+}

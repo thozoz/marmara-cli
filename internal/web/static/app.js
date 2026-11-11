@@ -93,7 +93,8 @@ function renderGrades(d) {
     `<span class="grade">${esc(g.DersKodu || "")}</span>`,
     esc(g.DersAdi || ""),
     `<span class="grade">${esc(g.HBN || g.HarfNotu || "")}</span>`,
-    fmt(g.BasariNotu),
+    // BYS sends the grade as BN ("93" or "-" before grading).
+    g.BN != null && g.BN !== "" ? esc(g.BN) : fmt(g.BasariNotu),
   ]);
   return tableHTML(["Kod", "Ders", "Harf", "Not"], rows, [3]);
 }
@@ -213,10 +214,33 @@ function renderTodaySchedule(d, now = new Date()) {
   return `<div class="section today-schedule no-lessons"><div class="section-title-row"><h2>Bugünkü Dersler <span class="h2-date">${esc(dateLabel)}</span></h2></div><div class="empty">Bugün ders yok.</div><p class="next-lesson">${esc(nextText)}</p></div>`;
 }
 
-function renderExams(d) {
-  const list = d?.OgrenciDersSinavListesi || [];
-  if (!list.length) return emptyMsg("Aktif dönem sınavı yok (dönem başlayınca dolacak).");
-  return rawJSON(d);
+// examDate turns BYS's "16.11.2026, Monday" into a sortable "2026-11-16".
+function examDate(e) {
+  const m = /^(\d{2})\.(\d{2})\.(\d{4})/.exec(e.sinavTarihi || "");
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : String(e.sinavTarihi || "");
+}
+
+// BYS repeats time/room once per room ("10:30,10:30,10:30"); show each once.
+function uniqCSV(s) {
+  return [...new Set(String(s || "").split(",").map((x) => x.trim()).filter(Boolean))].join(", ");
+}
+
+// renderExams lists exams newest first, or soonest first when ascending.
+function renderExams(d, ascending = false) {
+  const list = (d?.OgrenciDersSinavListesi || []).slice();
+  if (!list.length) return emptyMsg("Sınav kaydı yok.");
+  const key = (e) => `${examDate(e)} ${uniqCSV(e.sinavSaati).padStart(5, "0")}`;
+  list.sort((a, b) => (ascending ? 1 : -1) * key(a).localeCompare(key(b)));
+  const rows = list.map((e) => [
+    esc(examDate(e)),
+    esc(uniqCSV(e.sinavSaati)),
+    `<span class="grade">${esc(e.dersKodu || "")}</span>`,
+    esc(e.dersAdi || ""),
+    esc(e.sinavTuru || ""),
+    esc(uniqCSV(e.derslikKodu)),
+    e.sinavCondition === "passed" ? "yapıldı" : "yaklaşıyor",
+  ]);
+  return tableHTML(["Tarih", "Saat", "Kod", "Ders", "Tür", "Derslik", "Durum"], rows);
 }
 
 function renderProfile(d) {
@@ -370,7 +394,7 @@ function miniList(items, limit) {
 async function renderSummary(requestId) {
   setPanel(`<div class="loading">Yükleniyor…</div>`);
   const [tr, caf, ex, prof, card, news, ann, cal, schedule] = await Promise.all([
-    api("/api/transcript"), api("/api/cafeteria"), api("/api/exams"),
+    api("/api/transcript"), api("/api/cafeteria"), api("/api/exams?filter=future"),
     api("/api/profile"), api("/api/card"),
     api("/api/news"), api("/api/announcements"), api("/api/calendar"),
     api("/api/schedule"),
@@ -435,7 +459,7 @@ async function renderSummary(requestId) {
 
   const exList = ex.data?.OgrenciDersSinavListesi || [];
   const examsSec = `<div class="section"><h2>Yaklaşan Sınavlar</h2>` +
-    (exList.length ? renderExams(ex.data) : `<div class="empty">Aktif dönem sınavı yok.</div>`) + `</div>`;
+    (exList.length ? renderExams(ex.data, true) : `<div class="empty">Yaklaşan sınav yok.</div>`) + `</div>`;
 
   const calItems = (Array.isArray(cal.data) ? cal.data : (cal.data?.data || []));
   const upcoming = calItems.filter((it) => {
