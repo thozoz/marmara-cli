@@ -26,6 +26,7 @@ func stubAPI(t *testing.T, fn roundTripFunc) *API {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir reads this on Windows
 	dir := filepath.Join(home, ".marmara")
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		t.Fatalf("mkdir: %v", err)
