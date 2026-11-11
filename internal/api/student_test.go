@@ -2,9 +2,154 @@ package api
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"marmara-cli/internal/auth"
+	"marmara-cli/internal/client"
 )
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+// stubAPI returns an *api.API whose HTTP transport is replaced by fn and whose
+// auth manager reads a fake, non-expiring token from a temp HOME.
+func stubAPI(t *testing.T, fn roundTripFunc) *API {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir reads this on Windows
+	dir := filepath.Join(home, ".marmara")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	buf, err := json.Marshal(auth.Token{
+		AccessToken:  "test-token",
+		RefreshToken: "test-refresh",
+		ExpiresAt:    time.Now().Add(time.Hour),
+	})
+	if err != nil {
+		t.Fatalf("marshal token: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "token.json"), buf, 0o600); err != nil {
+		t.Fatalf("write token: %v", err)
+	}
+	c := client.NewWithHTTPClient(&http.Client{Transport: fn})
+	m, err := auth.NewManager(c)
+	if err != nil {
+		t.Fatalf("auth manager: %v", err)
+	}
+	return New(c, m)
+}
+
+func jsonResponse(status int, body string) *http.Response {
+	return &http.Response{
+		StatusCode: status,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(body)),
+	}
+}
+
+func TestParseDersID(t *testing.T) {
+	good := map[string]int64{"42": 42, "  7  ": 7, "123456": 123456}
+	for in, want := range good {
+		got, err := ParseDersID(in)
+		if err != nil {
+			t.Fatalf("ParseDersID(%q) error: %v", in, err)
+		}
+		if got != want {
+			t.Fatalf("ParseDersID(%q) = %d, want %d", in, got, want)
+		}
+	}
+	for _, in := range []string{"", "   ", "abc", "12abc", "0", "-3", "1.5"} {
+		if _, err := ParseDersID(in); err == nil {
+			t.Fatalf("ParseDersID(%q) = nil error, want error", in)
+		}
+	}
+}
+
+// The upstream ASP.NET model binder needs an integer; sending a quoted string is
+// the bug described in issue #9.
+func TestGradeDetail_SendsIntegerOgrenciDersId(t *testing.T) {
+	var sentBody string
+	a := stubAPI(t, func(r *http.Request) (*http.Response, error) {
+		buf, _ := io.ReadAll(r.Body)
+		sentBody = string(buf)
+		if got := r.Header.Get("Authorization"); got != "Bearer test-token" {
+			t.Errorf("Authorization = %q, want Bearer test-token", got)
+		}
+		return jsonResponse(200, `{"SinavNotlariListesi":[]}`), nil
+	})
+
+	if _, err := a.GradeDetail(context.Background(), 123456); err != nil {
+		t.Fatalf("GradeDetail: %v", err)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(sentBody), &payload); err != nil {
+		t.Fatalf("decode sent body %q: %v", sentBody, err)
+	}
+	id, ok := payload["OgrenciDersId"]
+	if !ok {
+		t.Fatalf("payload missing OgrenciDersId: %s", sentBody)
+	}
+	if _, isString := id.(string); isString {
+		t.Fatalf("OgrenciDersId sent as a JSON string, want number: %s", sentBody)
+	}
+	if num, isNum := id.(float64); !isNum || num != 123456 {
+		t.Fatalf("OgrenciDersId = %#v, want number 123456", id)
+	}
+}
+
+func TestGradeDetail_RejectsNonPositiveID(t *testing.T) {
+	a := &API{}
+	for _, id := range []int64{0, -1} {
+		if _, err := a.GradeDetail(context.Background(), id); err == nil {
+			t.Fatalf("GradeDetail(%d) = nil error, want error", id)
+		}
+	}
+}
+
+// A 500 from NotDetayGetir is the past-semester case in issue #3; the error must
+// explain that only active-term courses work, while staying unwrappable to the
+// original APIError.
+func TestGradeDetail_ExplainsHTTP500(t *testing.T) {
+	a := stubAPI(t, func(*http.Request) (*http.Response, error) {
+		return jsonResponse(500, `{"Error":{"Code":"Exception","Message":"An error occurred while processing your request."}}`), nil
+	})
+	_, err := a.GradeDetail(context.Background(), 999)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	msg := err.Error()
+	for _, want := range []string{"999", "backend error", "HTTP 500"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("error %q does not mention %q", msg, want)
+		}
+	}
+	var apiErr *client.APIError
+	if !errors.As(err, &apiErr) {
+		t.Error("wrapped original APIError should stay unwrappable")
+	}
+}
+
+func TestGradeDetail_ExplainsUnknownEnrolment(t *testing.T) {
+	a := stubAPI(t, func(*http.Request) (*http.Response, error) {
+		return jsonResponse(400, `{"Error":{"Message":"Bu Öğrenci İstenilen Dersi Almamaktadır."}}`), nil
+	})
+	_, err := a.GradeDetail(context.Background(), 5)
+	if err == nil || !strings.Contains(err.Error(), "does not belong") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
 
 func TestScheduleTerm_Validation(t *testing.T) {
 	a := &API{}
@@ -31,5 +176,86 @@ func TestScheduleTerm_Validation(t *testing.T) {
 				t.Errorf("unexpected error message: %v", err)
 			}
 		})
+	}
+}
+
+// Exams and grades return an empty list unless the active term is sent.
+func TestTermScopedEndpointsSendActiveTerm(t *testing.T) {
+	for name, call := range map[string]func(*API) (json.RawMessage, error){
+		"SinavListesiGetir": func(a *API) (json.RawMessage, error) { return a.Exams(context.Background()) },
+		"NotListesiGetir":   func(a *API) (json.RawMessage, error) { return a.Grades(context.Background()) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			var sent map[string]any
+			a := stubAPI(t, func(r *http.Request) (*http.Response, error) {
+				if strings.HasSuffix(r.URL.Path, "/KullaniciBilgileri") {
+					return jsonResponse(200, `{"OgretimYili":2026,"OgretimDonemi":100001}`), nil
+				}
+				if !strings.HasSuffix(r.URL.Path, "/"+name) {
+					t.Errorf("unexpected path %q", r.URL.Path)
+				}
+				_ = json.NewDecoder(r.Body).Decode(&sent)
+				return jsonResponse(200, `{}`), nil
+			})
+			if _, err := call(a); err != nil {
+				t.Fatalf("%s: %v", name, err)
+			}
+			if sent["OgretimYili"] != float64(2026) || sent["OgretimDonemi"] != float64(100001) {
+				t.Fatalf("body = %v, want active term", sent)
+			}
+		})
+	}
+}
+
+// AllExams walks every transcript term and applies the past/future filter.
+func TestAllExams_WalksTermsAndFilters(t *testing.T) {
+	transcript := `{"Transcript":{"Transcript":{"Semesters":[
+		{"Yil":2025,"DersAlinmismi":true,"TanscriptDonem":{"Kodid":100001}},
+		{"Yil":2025,"DersAlinmismi":false,"TanscriptDonem":{"Kodid":100003}},
+		{"Yil":2026,"DersAlinmismi":true,"TanscriptDonem":{"Kodid":100001}}]}}}`
+	exams := map[float64]string{
+		2025: `{"OgrenciDersSinavListesi":[{"dersKodu":"OLD","sinavCondition":"passed"}]}`,
+		2026: `{"OgrenciDersSinavListesi":[{"dersKodu":"NEW","sinavCondition":"future"}]}`,
+	}
+	a := stubAPI(t, func(r *http.Request) (*http.Response, error) {
+		if strings.HasSuffix(r.URL.Path, "/TranscriptGetir") {
+			return jsonResponse(200, transcript), nil
+		}
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if body["OgretimDonemi"] != float64(100001) {
+			t.Errorf("unexpected term %v (skipped terms must not be queried)", body)
+		}
+		return jsonResponse(200, exams[body["OgretimYili"].(float64)]), nil
+	})
+
+	codes := func(filter string) string {
+		raw, err := a.AllExams(context.Background(), filter)
+		if err != nil {
+			t.Fatalf("AllExams(%q): %v", filter, err)
+		}
+		var out struct {
+			List []map[string]any `json:"OgrenciDersSinavListesi"`
+		}
+		if err := json.Unmarshal(raw, &out); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		var got []string
+		for _, e := range out.List {
+			got = append(got, e["dersKodu"].(string))
+		}
+		return strings.Join(got, ",")
+	}
+	if got := codes(ExamsAll); got != "OLD,NEW" {
+		t.Errorf("all = %q", got)
+	}
+	if got := codes(ExamsPast); got != "OLD" {
+		t.Errorf("past = %q", got)
+	}
+	if got := codes(ExamsFuture); got != "NEW" {
+		t.Errorf("future = %q", got)
+	}
+	if _, err := a.AllExams(context.Background(), "bogus"); err == nil {
+		t.Error("invalid filter should error")
 	}
 }

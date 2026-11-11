@@ -25,7 +25,7 @@ const VIEWS = {
   transcript:   { label: "Transkript",        endpoint: "transcript",    auth: true,  render: renderTranscript },
   grades:       { label: "Notlar",            endpoint: "grades",        auth: true,  render: renderGrades },
   schedule:     { label: "Ders Programı",     endpoint: "schedule",      auth: true,  render: renderSchedule },
-  exams:        { label: "Sınavlar",          endpoint: "exams",         auth: true,  render: renderExams },
+  exams:        { label: "Sınavlar",          endpoint: "exams",         auth: true,  render: renderExamsPage },
   profile:      { label: "Profil",            endpoint: "profile",       auth: true,  render: renderProfile },
   card:         { label: "Kart",              endpoint: "card",          auth: true,  render: renderCard },
   cafeteria:    { label: "Yemekhane",         endpoint: "cafeteria",     auth: false, render: renderCafeteria },
@@ -93,7 +93,8 @@ function renderGrades(d) {
     `<span class="grade">${esc(g.DersKodu || "")}</span>`,
     esc(g.DersAdi || ""),
     `<span class="grade">${esc(g.HBN || g.HarfNotu || "")}</span>`,
-    fmt(g.BasariNotu),
+    // BYS sends the grade as BN ("93" or "-" before grading).
+    g.BN != null && g.BN !== "" ? esc(g.BN) : fmt(g.BasariNotu),
   ]);
   return tableHTML(["Kod", "Ders", "Harf", "Not"], rows, [3]);
 }
@@ -213,22 +214,119 @@ function renderTodaySchedule(d, now = new Date()) {
   return `<div class="section today-schedule no-lessons"><div class="section-title-row"><h2>Bugünkü Dersler <span class="h2-date">${esc(dateLabel)}</span></h2></div><div class="empty">Bugün ders yok.</div><p class="next-lesson">${esc(nextText)}</p></div>`;
 }
 
-function renderExams(d) {
-  const list = d?.OgrenciDersSinavListesi || [];
-  if (!list.length) return emptyMsg("Aktif dönem sınavı yok (dönem başlayınca dolacak).");
-  return rawJSON(d);
+// examDate turns BYS's "16.11.2026, Monday" into a sortable "2026-11-16".
+function examDate(e) {
+  const m = /^(\d{2})\.(\d{2})\.(\d{4})/.exec(e.sinavTarihi || "");
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : String(e.sinavTarihi || "");
+}
+
+// BYS repeats time/room once per room ("10:30,10:30,10:30"); show each once.
+function uniqCSV(s) {
+  return [...new Set(String(s || "").split(",").map((x) => x.trim()).filter(Boolean))].join(", ");
+}
+
+// renderExams lists exams newest first, or soonest first when ascending.
+function renderExams(d, ascending = false) {
+  const list = (d?.OgrenciDersSinavListesi || []).slice();
+  if (!list.length) return emptyMsg("Sınav kaydı yok.");
+  const key = (e) => `${examDate(e)} ${uniqCSV(e.sinavSaati).padStart(5, "0")}`;
+  list.sort((a, b) => (ascending ? 1 : -1) * key(a).localeCompare(key(b)));
+  const rows = list.map((e) => [
+    esc(examDate(e)),
+    esc(uniqCSV(e.sinavSaati)),
+    `<span class="grade">${esc(e.dersKodu || "")}</span>`,
+    esc(e.dersAdi || ""),
+    esc(e.sinavTuru || ""),
+    esc(uniqCSV(e.derslikKodu)),
+    e.sinavCondition === "passed" ? "yapıldı" : "yaklaşıyor",
+  ]);
+  return tableHTML(["Tarih", "Saat", "Kod", "Ders", "Tür", "Derslik", "Durum"], rows);
+}
+
+// renderUpcomingExams is the summary card: soonest first, styled like today's
+// lessons, with a "N gün kaldı" hint per exam.
+function renderUpcomingExams(d, today = todayISO()) {
+  const list = (d?.OgrenciDersSinavListesi || []).slice()
+    .sort((a, b) => `${examDate(a)} ${uniqCSV(a.sinavSaati).padStart(5, "0")}`
+      .localeCompare(`${examDate(b)} ${uniqCSV(b.sinavSaati).padStart(5, "0")}`));
+  const head = `<div class="section-title-row"><h2>Yaklaşan Sınavlar</h2>` +
+    (list.length ? `<span class="lesson-count">${list.length} sınav</span>` : "") + `</div>`;
+  if (!list.length) return `<div class="section upcoming-exams">${head}<div class="empty">Yaklaşan sınav yok.</div></div>`;
+  const utc = (iso) => Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10));
+  const dayFmt = new Intl.DateTimeFormat("tr-TR", { day: "numeric", month: "short", weekday: "short", timeZone: "UTC" });
+  const rows = list.map((e) => {
+    const iso = examDate(e);
+    const valid = /^\d{4}-\d{2}-\d{2}$/.test(iso);
+    const left = valid ? Math.round((utc(iso) - utc(today)) / 86400000) : null;
+    const hint = left === 0 ? "bugün" : left === 1 ? "yarın" : left > 1 ? `${left} gün kaldı` : "";
+    const detail = [e.sinavTuru, uniqCSV(e.derslikKodu)].filter(Boolean).map(esc).join(" · ");
+    return `<li${left !== null && left <= 1 ? ' class="current-lesson"' : ""}>
+      <time>${esc(valid ? dayFmt.format(utc(iso)) : iso)}<br>${esc(uniqCSV(e.sinavSaati))}</time>
+      <div class="lesson-detail"><div><span class="code">${esc(e.dersKodu || "")}</span><strong>${esc(e.dersAdi || "")}</strong>${hint ? `<span class="lesson-remaining">${hint}</span>` : ""}</div><p>${detail}</p></div>
+    </li>`;
+  }).join("");
+  return `<div class="section upcoming-exams">${head}<ul class="today-lessons">${rows}</ul></div>`;
+}
+
+// Exams page: all terms with Tümü / Yaklaşan / Geçmiş chips, filtered client-side.
+let examsData = null;
+const EXAM_FILTERS = [["all", "Tümü"], ["future", "Yaklaşan"], ["past", "Geçmiş"]];
+
+function examsFor(f) {
+  return (examsData?.OgrenciDersSinavListesi || [])
+    .filter((e) => f === "all" || (f === "past") === (e.sinavCondition === "passed"));
+}
+
+// Upcoming reads soonest first; all/past read newest first.
+function examsListHTML(f) {
+  return renderExams({ OgrenciDersSinavListesi: examsFor(f) }, f === "future");
+}
+
+function renderExamsPage(d) {
+  examsData = d;
+  const chips = EXAM_FILTERS.map(([f, label]) =>
+    `<button type="button" class="chip${f === "all" ? " active" : ""}" data-filter="${f}" ` +
+    `onclick="filterExams('${f}')">${label}<span class="n">${examsFor(f).length}</span></button>`).join("");
+  return `<div class="chips">${chips}</div><div id="exams-list">${examsListHTML("all")}</div>`;
+}
+
+function filterExams(f) {
+  document.querySelectorAll(".chips .chip").forEach((b) => b.classList.toggle("active", b.dataset.filter === f));
+  $("#exams-list").innerHTML = examsListHTML(f);
 }
 
 function renderProfile(d) {
+  const name = firstStr(d, ["AdSoyad", "AdSoyadi"]);
   const fields = [
-    ["Ad", "Ad"], ["Soyad", "Soyad"], ["Birim", "Birim"], ["AltBirim", "Alt Birim"],
-    ["Email", "E-posta"], ["DanismanEMail", "Danışman"], ["KullaniciTuru", "Tür"],
+    ["Ad Soyad", name || [d.Ad, d.Soyad].filter(Boolean).join(" ")],
+    ["Öğrenci No", firstStr(d, ["OgrenciNo", "OgrenciNumarasi", "Numara"])],
+    ["Birim", firstStr(d, ["Birim", "BirimAdi"])],
+    ["Alt Birim", firstStr(d, ["AltBirim", "AltBirimAdi", "Bolum"])],
+    ["E-posta", firstStr(d, ["Email", "EMail", "Eposta", "EPosta", "Mail"])],
+    ["Danışman", firstStr(d, ["DanismanAdSoyad", "DanismanAdi", "Danisman", "Danismani"])],
+    ["Danışman E-posta", firstStr(d, ["DanismanEMail", "DanismanMail"])],
+    ["Tür", firstStr(d, ["KullaniciTuru", "KullaniciTipi"])],
   ];
   const rows = fields
-    .filter(([k]) => d[k] != null && String(d[k]).trim() !== "")
-    .map(([k, lab]) => `<dt>${esc(lab)}</dt><dd>${esc(d[k])}</dd>`);
+    .filter(([, v]) => v != null && String(v).trim() !== "")
+    .map(([lab, v]) => `<dt>${esc(lab)}</dt><dd>${esc(v)}</dd>`);
   if (!rows.length) return rawJSON(d);
-  return `<dl class="kv">${rows.join("")}</dl>`;
+  const photo = studentPhotoURL(firstStr(d, ["ResimPath", "OgrenciFotograf", "OgrenciFotografi", "Fotograf"]));
+  const avatar = photo
+    ? `<img class="avatar" src="${esc(photo)}" alt="Öğrenci fotoğrafı" loading="lazy">`
+    : "";
+  return `${avatar}<dl class="kv">${rows.join("")}</dl>`;
+}
+
+// studentPhotoURL mirrors the Go helper: the profile carries only a file name,
+// which lives under /upload/ogrfoto/ on BYS.
+function studentPhotoURL(path) {
+  let p = String(path || "").trim();
+  if (!p) return "";
+  if (/^https?:\/\//i.test(p)) return p;
+  p = p.replace(/^\/+/, "");
+  if (p.startsWith("upload/") || p.startsWith("v2/upload/")) return `https://bys.marmara.edu.tr/${p}`;
+  return `https://bys.marmara.edu.tr/upload/ogrfoto/${encodeURIComponent(p)}`;
 }
 
 function renderCard(d) {
@@ -348,7 +446,7 @@ function miniList(items, limit) {
 async function renderSummary(requestId) {
   setPanel(`<div class="loading">Yükleniyor…</div>`);
   const [tr, caf, ex, prof, card, news, ann, cal, schedule] = await Promise.all([
-    api("/api/transcript"), api("/api/cafeteria"), api("/api/exams"),
+    api("/api/transcript"), api("/api/cafeteria"), api("/api/exams?filter=future"),
     api("/api/profile"), api("/api/card"),
     api("/api/news"), api("/api/announcements"), api("/api/calendar"),
     api("/api/schedule"),
@@ -371,9 +469,14 @@ async function renderSummary(requestId) {
 
   // A full-width daily timetable sits before the cafeteria so the dashboard
   // answers the two morning questions first: where do I need to be, and what can I eat?
-  html += schedule.ok
+  // Upcoming exams sit beside it on wide screens and right below it on narrow ones.
+  const todaySec = schedule.ok
     ? renderTodaySchedule(schedule.data)
     : `<div class="section today-schedule"><h2>Bugünkü Dersler</h2><div class="empty">Ders programı şu an yüklenemedi.</div></div>`;
+  const examsSec = ex.ok
+    ? renderUpcomingExams(ex.data)
+    : `<div class="section upcoming-exams"><h2>Yaklaşan Sınavlar</h2><div class="empty">Sınavlar şu an yüklenemedi.</div></div>`;
+  html += `<div class="today-row">${todaySec}${examsSec}</div>`;
 
   // Menu (all variants + kcal) — full width on top. Show today if available,
   // otherwise the most recent published day.
@@ -411,9 +514,6 @@ async function renderSummary(requestId) {
   } else cardBody = `<div class="empty">Kart yok.</div>`;
   const cardSec = `<div class="section"><h2>Kart</h2>${cardBody}</div>`;
 
-  const exList = ex.data?.OgrenciDersSinavListesi || [];
-  const examsSec = `<div class="section"><h2>Yaklaşan Sınavlar</h2>` +
-    (exList.length ? renderExams(ex.data) : `<div class="empty">Aktif dönem sınavı yok.</div>`) + `</div>`;
 
   const calItems = (Array.isArray(cal.data) ? cal.data : (cal.data?.data || []));
   const upcoming = calItems.filter((it) => {
@@ -428,9 +528,9 @@ async function renderSummary(requestId) {
   const newsItems = news.data?.data || (Array.isArray(news.data) ? news.data : []);
   const newsSec = `<div class="section"><h2>Haberler</h2>${miniList(newsItems, 6)}</div>`;
 
-  // 4 columns: [profil+kart+sınavlar] · takvim · duyurular · haberler
+  // 4 columns: [profil+kart] · takvim · duyurular · haberler
   html += `<div class="dash">
-    <div class="col">${profileSec}${cardSec}${examsSec}</div>
+    <div class="col">${profileSec}${cardSec}</div>
     <div class="col">${calSec}</div>
     <div class="col">${annSec}</div>
     <div class="col">${newsSec}</div>

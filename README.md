@@ -26,7 +26,7 @@ Public data needs no login:
 ```sh
 marmara cafeteria          # daily cafeteria menu
 marmara clubs              # student clubs
-marmara club-events        # upcoming club events
+marmara club-events        # upcoming club events (upstream currently 404)
 marmara calendar           # academic calendar / exam periods
 marmara campus-maps        # campus GPS markers (--types for categories)
 marmara news               # university news
@@ -47,11 +47,11 @@ MARMARA_USERNAME=... MARMARA_PASSWORD=... marmara login
 
 marmara profile            # your profile
 marmara card               # campus card status + numbers
-marmara grades             # grade list
+marmara grades             # active-term grade list
 marmara grades detail --ders-id <OgrenciDersId>
 marmara transcript
 marmara schedule           # weekly timetable (--table supported)
-marmara exams              # exam schedule
+marmara exams              # exams from every term (add past / future to filter)
 
 marmara logout             # revoke token + clear cache
 ```
@@ -60,7 +60,7 @@ Output formatting:
 
 - default: compact JSON on one line (easy for scripts/agents to parse)
 - `--pretty`: indented JSON
-- `--table`: human-readable table for supported commands (`transcript`, `grades`,
+- `--table`: human-readable table for supported commands (`transcript`, `grades`, `exams`,
   `schedule`, `cafeteria`, `card`, `profile`, `news`, `announcements`, `events`, `calendar`);
   any command without a table view falls back to JSON automatically
 
@@ -84,7 +84,9 @@ cached refresh token, so you rarely need to log in again.
 
 A local, self-hosted browser UI over the same API layer — a clean dashboard for
 your transcript, grades, schedule, exams, cafeteria menu, calendar, news and
-more, plus a summary landing screen (GANO, today's menu, upcoming exams).
+more, plus a summary landing screen: GANO, today's lessons with upcoming exams
+right beside them (stacked on narrow screens) and today's menu. The exams page
+lists every term with Tümü / Yaklaşan / Geçmiş filter chips.
 
 <p align="center">
   <img src="docs/dashboard.png" alt="Marmara Panel Dashboard" width="850">
@@ -116,7 +118,8 @@ claude mcp add marmara -- /full/path/to/marmara mcp
 ```
 
 Every read command above is exposed as a tool (`profile`, `grades`, `schedule`,
-`exams`, `cafeteria`, `calendar`, …). Log in once with `marmara login` first; the
+`exams`, `cafeteria`, `calendar`, …); `exams` covers every enrolled term and takes an
+optional `filter` (`past` / `future`). Log in once with `marmara login` first; the
 MCP server reuses the same cached token.
 
 ## Scope
@@ -131,9 +134,25 @@ user and never take an arbitrary student ID.
 
 ## Roadmap / TODO
 
-- **Table output for `exams`.** Exam endpoints return empty arrays between terms,
-  so the real field names aren't confirmed yet. Once exam schedules are active,
-  add a typed `--table` renderer based on the actual `OgrenciDersSinavListesi` shape.
+### Known limitations
+
+- **`grades detail` may fail upstream.** `NotDetayGetir` throws an unhandled
+  exception (HTTP 500) on the BYS side. It has been seen for graded past-term
+  courses and for ungraded active-term courses alike, with the id taken from
+  `marmara grades`, so it is a backend issue rather than a wrong id. The CLI/MCP
+  report it as an explicit error rather than a bare 500. Because of this, class
+  average, min/max and rank are not available yet (#13).
+- **`club-events` is down upstream.** ESKS now returns 404 for
+  `kulup/kulupeglist.json`; the command is kept until the new path is known.
+- **`cafeteria` has two sources.** SKS (`sks.marmara.edu.tr/yemek/json`) is tried
+  first; if it times out, fails DNS or returns an unusable body, the BYS mobile
+  endpoint (`/v2/Public/Mobil/Yemekhane`) is used instead. Both are normalised to
+  the same flat day array, so `--table`, the dashboard and MCP see one shape.
+- **`profile` advisor name is best-effort.** `KullaniciBilgileri` exposes
+  `DanismanEMail` (confirmed in the mobile build) but no confirmed display-name
+  key; `--table` shows the name only when the backend happens to include one.
+  The photo URL is derived from `ResimPath` as
+  `https://bys.marmara.edu.tr/upload/ogrfoto/<file>`.
 
 ### Removed — broken or gone upstream
 

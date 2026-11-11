@@ -5,6 +5,8 @@ package mcpserver
 import (
 	"context"
 	"encoding/json"
+	"math"
+	"strconv"
 
 	"marmara-cli/internal/api"
 	"marmara-cli/internal/auth"
@@ -26,6 +28,31 @@ func Serve() error {
 	s := server.NewMCPServer("marmara", "0.1.0")
 	register(s, a)
 	return server.ServeStdio(s)
+}
+
+// argumentString flattens one tool argument to a string, accepting both the
+// string and number forms an MCP client may send for a numeric id.
+func argumentString(req mcp.CallToolRequest, name string) string {
+	args := req.GetArguments()
+	if args == nil {
+		return ""
+	}
+	switch v := args[name].(type) {
+	case string:
+		return v
+	case float64:
+		// Reject fractions and values float64 cannot hold exactly, so a
+		// malformed id errors instead of silently becoming another course.
+		if v != math.Trunc(v) || v < 1 || v > 1<<53 {
+			return ""
+		}
+		return strconv.FormatInt(int64(v), 10)
+	case int:
+		return strconv.Itoa(v)
+	case json.Number:
+		return v.String()
+	}
+	return ""
 }
 
 // simpleFn is an api method taking only a context.
@@ -50,15 +77,27 @@ func register(s *server.MCPServer, a *api.API) {
 	addSimple(s, a, "grades", "Your grade list.", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Grades(ctx) })
 	addSimple(s, a, "transcript", "Full academic transcript.", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Transcript(ctx) })
 	addSimple(s, a, "schedule", "Weekly lecture timetable.", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Schedule(ctx) })
-	addSimple(s, a, "exams", "Exam schedule (midterm/final/resit).", func(ctx context.Context, a *api.API) (json.RawMessage, error) { return a.Exams(ctx) })
+
+	// Exams across every enrolled term, optionally filtered.
+	exams := mcp.NewTool("exams",
+		mcp.WithDescription("Exams (midterm/final/resit) from every enrolled term, each tagged with OgretimYili/OgretimDonemi. sinavCondition is \"passed\" once an exam is over."),
+		mcp.WithString("filter", mcp.Description("Optional: past (already held) or future (still ahead)."), mcp.Enum(api.ExamsPast, api.ExamsFuture)),
+	)
+	s.AddTool(exams, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		raw, err := a.AllExams(ctx, argumentString(req, "filter"))
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		return mcp.NewToolResultText(string(raw)), nil
+	})
 
 	// Grade detail (takes an id).
 	gradeDetail := mcp.NewTool("grade_detail",
-		mcp.WithDescription("Grade component breakdown for one course."),
-		mcp.WithString("ders_id", mcp.Description("OgrenciDersId from the grades list."), mcp.Required()),
+		mcp.WithDescription("Grade component breakdown for one course. BYS may return HTTP 500 for this endpoint."),
+		mcp.WithString("ders_id", mcp.Description("OgrenciDersId (numeric) from the grades list."), mcp.Required()),
 	)
 	s.AddTool(gradeDetail, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		id, err := req.RequireString("ders_id")
+		id, err := api.ParseDersID(argumentString(req, "ders_id"))
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}

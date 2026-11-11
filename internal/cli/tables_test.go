@@ -75,3 +75,101 @@ func TestRenderSchedule_InvalidJSON(t *testing.T) {
 		t.Fatal("expected error for invalid json, got nil")
 	}
 }
+
+func TestRenderProfile(t *testing.T) {
+	raw := json.RawMessage(`{
+		"Ad": "Ayşe", "Soyad": "Yılmaz", "OgrenciNo": "111111111",
+		"Birim": "Mühendislik Fakültesi", "BirimKodu": "BLM",
+		"Email": "ayse@marmara.edu.tr", "DanismanEMail": "hoca@marmara.edu.tr",
+		"ResimPath": "111111111.jpg", "KullaniciTuru": "Öğrenci",
+		"OgretimYili": 2026, "OgretimDonemi": 100001
+	}`)
+	out, err := renderProfile(raw)
+	if err != nil {
+		t.Fatalf("renderProfile: %v", err)
+	}
+	for _, want := range []string{
+		"Ayşe Yılmaz", "111111111", "Mühendislik Fakültesi", "BLM",
+		"ayse@marmara.edu.tr", "hoca@marmara.edu.tr", "Öğrenci",
+		"2026 Güz", "https://bys.marmara.edu.tr/upload/ogrfoto/111111111.jpg",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("profile table missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestRenderProfile_NoFields(t *testing.T) {
+	if _, err := renderProfile(json.RawMessage(`{"Bilinmeyen":"x"}`)); err == nil {
+		t.Error("expected error for a profile with no known fields")
+	}
+}
+
+func TestTermLabel(t *testing.T) {
+	cases := []struct {
+		yil, donem int
+		want       string
+	}{
+		{2026, 100001, "2026 Güz"},
+		{2026, 100002, "2026 Bahar"},
+		{2026, 100003, "2026 Yaz"},
+		{2026, 100009, "2026 (dönem 100009)"},
+		{0, 0, ""},
+		{2026, 0, ""},
+	}
+	for _, c := range cases {
+		if got := termLabel(c.yil, c.donem); got != c.want {
+			t.Errorf("termLabel(%d,%d) = %q, want %q", c.yil, c.donem, got, c.want)
+		}
+	}
+}
+
+func TestRenderCafeteria(t *testing.T) {
+	raw := json.RawMessage(`[{"date":"2026-10-19","meals":{"Çorba":110,"Köfte":340}}]`)
+	out, err := renderCafeteria(raw)
+	if err != nil {
+		t.Fatalf("renderCafeteria: %v", err)
+	}
+	if !strings.Contains(out, "2026-10-19") || !strings.Contains(out, "450 kcal") {
+		t.Errorf("unexpected table:\n%s", out)
+	}
+	if _, err := renderCafeteria(json.RawMessage(`[]`)); err == nil {
+		t.Error("expected error for an empty menu")
+	}
+}
+
+func TestRenderExams_SortsAndDedupes(t *testing.T) {
+	raw := json.RawMessage(`{"OgrenciDersSinavListesi":[
+		{"dersKodu":"MAT2085.1","dersAdi":"Diferansiyel","sinavTuru":"Ara Sınav 1","sinavTarihi":"16.11.2026, Monday","sinavSaati":"10:30,10:30","derslikKodu":"Z05,Z06","sinavCondition":"future"},
+		{"dersKodu":"BLM1003.2","dersAdi":"Algoritma","sinavTuru":"Final","sinavTarihi":"10.01.2026, Saturday","sinavSaati":"9:00","derslikKodu":"Z05","sinavCondition":"passed"}]}`)
+	out, err := renderExams(raw)
+	if err != nil {
+		t.Fatalf("renderExams: %v", err)
+	}
+	if strings.Index(out, "BLM1003.2") > strings.Index(out, "MAT2085.1") {
+		t.Errorf("exams not chronological:\n%s", out)
+	}
+	for _, want := range []string{"2026-11-16", "10:30  ", "Z05, Z06", "yapıldı", "yaklaşıyor"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "10:30, 10:30") {
+		t.Errorf("time not deduplicated:\n%s", out)
+	}
+	if _, err := renderExams(json.RawMessage(`{"OgrenciDersSinavListesi":[]}`)); err == nil {
+		t.Error("empty list should fall back to JSON")
+	}
+}
+
+func TestRenderGrades_UsesBN(t *testing.T) {
+	out, err := renderGrades(json.RawMessage(`{"OgrenciDersNotListesi":[
+		{"DersKodu":"BLM1001.1","DersAdi":"Giriş","HBN":"AA","BN":"93"},
+		{"DersKodu":"BLM2001.1","DersAdi":"Prog II","HBN":" - ","BN":"-"}]}`))
+	if err != nil {
+		t.Fatalf("renderGrades: %v", err)
+	}
+	if !strings.Contains(out, "93") || strings.Contains(out, " 0\n") || strings.HasSuffix(out, " 0") {
+		t.Errorf("grades should show BN, not 0:\n%s", out)
+	}
+}

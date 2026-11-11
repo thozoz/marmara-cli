@@ -72,7 +72,6 @@ func (s *Server) routes() {
 		"grades":        s.api.Grades,
 		"transcript":    s.api.Transcript,
 		"schedule":      s.api.Schedule,
-		"exams":         s.api.Exams,
 		"features":      s.api.Features,
 		"risk-report":   s.api.RiskReport,
 		"cafeteria":     s.api.Cafeteria,
@@ -91,10 +90,20 @@ func (s *Server) routes() {
 		})
 	}
 
+	// Exams from every enrolled term; ?filter=past|future narrows them.
+	s.mux.HandleFunc("/api/exams", func(w http.ResponseWriter, r *http.Request) {
+		filter := r.URL.Query().Get("filter")
+		if filter != api.ExamsAll && filter != api.ExamsPast && filter != api.ExamsFuture {
+			writeErr(w, http.StatusBadRequest, "filter must be past or future")
+			return
+		}
+		s.serveData(w, r, func(ctx context.Context) (json.RawMessage, error) { return s.api.AllExams(ctx, filter) })
+	})
+
 	s.mux.HandleFunc("/api/grade-detail", func(w http.ResponseWriter, r *http.Request) {
-		id := r.URL.Query().Get("ders_id")
-		if id == "" {
-			writeErr(w, http.StatusBadRequest, "ders_id required")
+		id, err := api.ParseDersID(r.URL.Query().Get("ders_id"))
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		s.serveData(w, r, func(ctx context.Context) (json.RawMessage, error) { return s.api.GradeDetail(ctx, id) })
